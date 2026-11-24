@@ -54,6 +54,13 @@ class Podcast(unittest.TestCase):
         self.assertEqual(shlex.split(cmd)[3:], ["passion", "src/passion.mp3", "Passion + Purpose Podcast (2026)", "https://a.test/p.mp3"])
         self.assertNotIn("SHOW (YEAR)", out)
 
+    def test_no_year_means_no_credit(self):
+        """A credit like "Show ()" would reach the screen; without a year get asks for SHOW (YEAR) instead."""
+        reply = {"results": [{"collectionName": "Undated", "trackName": "x", "trackTimeMillis": 600000, "episodeUrl": "https://a.test/u.mp3"}]}
+        ns = load("slug", "cmd_podcast", http=lambda u, **k: json.dumps(reply).encode())
+        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10)
+        self.assertIn("get https://a.test/u.mp3 --name undated\n", out); self.assertNotIn("--credit", out)
+
     def test_nothing_found_points_at_archive(self):
         ns = load("slug", "cmd_podcast", http=lambda u, **k: b'{"results": []}')
         self.assertIn("FIX: try python3 scripts/find_audio.py archive 'Nobody Known'",

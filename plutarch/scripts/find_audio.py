@@ -54,7 +54,7 @@ def cmd_podcast(a):
     if not rows:
         print(f"0 podcast episodes found for {a.name!r}.\nFIX: try python3 scripts/find_audio.py archive {shlex.quote(a.name)}"); return
     mins = lambda r: round((r.get("trackTimeMillis") or 0) / 60000)
-    rows.sort(key=lambda r: not 5 <= mins(r) <= 75)              # keeps search order; episodes of 5-75 min first
+    rows.sort(key=lambda r: not 5 <= mins(r) <= 90)              # keeps search order; episodes of 5-90 min first
     used = {os.path.splitext(f)[0] for f in os.listdir("src")} if os.path.isdir("src") else set()
     for r in rows:
         show, year = r.get("collectionName", "").strip(), (r.get("releaseDate") or "")[:4]
@@ -62,8 +62,9 @@ def cmd_podcast(a):
         while name in used: name = f"{slug(show)}-{k}"; k += 1
         used.add(name)
         print(f"{(r.get('releaseDate') or '')[:10]} | {mins(r)} min | {show[:32]} | {r.get('trackName', '')[:70]}")
-        print(f"  python3 scripts/find_audio.py get {shlex.quote(r['episodeUrl'])} --name {name} --credit {shlex.quote(f'{show} ({year})')}")
-    print(f"\n{len(rows)} episodes. Pick one where {a.name} is the guest, under 75 minutes if you can "
+        credit = f" --credit {shlex.quote(f'{show} ({year})')}" if show and year.isdigit() else ""
+        print(f"  python3 scripts/find_audio.py get {shlex.quote(r['episodeUrl'])} --name {name}{credit}")
+    print(f"\n{len(rows)} episodes. Pick one where {a.name} is the guest, under 90 minutes if you can "
           "(transcribing takes about 1 minute per 10 minutes of audio).\nNext: run that episode's find_audio.py get line.")
 
 def cmd_episodes(a):
@@ -83,7 +84,7 @@ def cmd_episodes(a):
     if n == 0:
         why = f"none of its {len(items)} episodes mention {a.grep!r}" if a.grep and items else "this feed lists no episodes"
         print(f"0 episodes: {why}. Running this feed again finds the same.\n"
-              f"FIX: pick a different show from: python3 scripts/find_audio.py podcast NAME   (or try: python3 scripts/find_audio.py archive NAME)")
+              f"FIX: list this person's episodes directly: python3 scripts/find_audio.py podcast NAME   (or: python3 scripts/find_audio.py archive NAME)")
         return
     print(f"\n{n} episodes. Next: python3 scripts/find_audio.py get \"<audio url>\" --name <short-name>")
 

@@ -31,10 +31,10 @@ live moment if it exists.
 ```
 python3 scripts/find_audio.py podcast "<full name>"
 ```
-It lists podcast episodes with the person, shortest-useful first, each with a ready `find_audio.py get` line.
+It lists podcast episodes with the person, episodes of 5-90 minutes first, each with a ready `find_audio.py get` line.
 Run the get line of one where they are the guest. For any other link: `find_audio.py get "<url>" --name interview`.
-Expect `OK src/interview.mp3 ...` and a `film.py source` command. Write the show or event name and year in place
-of `SHOW (YEAR)` and run it; the first source replaces the template entries.
+Expect `OK src/<name>.mp3 ...` and a `film.py source` command. Run it (if it still says `SHOW (YEAR)`,
+write the show or event name and year there first); the first source replaces the template entries.
 
 ### 3. Transcribe
 
