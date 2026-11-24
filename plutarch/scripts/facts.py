@@ -6,7 +6,7 @@
 A page passes when it has the subject's full name, and the fact's numbers, its names (places, teams, awards) and half of
 its other words within 12 words of each other. That shows the page says them together. It does not prove the claim: read
 the page."""
-import hashlib, html, json, math, os, re, sys, unicodedata, urllib.parse, urllib.request
+import hashlib, html, json, math, os, re, sys, time, unicodedata, urllib.parse, urllib.request
 
 DONE, NEAR = "out/facts.json", 12
 OFF = os.environ.get("PLUTARCH_FACTS") == "off"      # for a person who read the sources (a book, a paywall); see README
@@ -26,14 +26,27 @@ def split(s):
     s = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", norm(s))
     return [t.lstrip("0") or "0" if t.isdigit() else t for t in re.findall(r"\d+|[^\W\d_]+", s)]
 
-def page(url):
+def fetch(url, secs=25):
     p = urllib.parse.urlsplit(url); host = p.netloc if p.netloc.isascii() else p.netloc.encode("idna").decode()
     url = urllib.parse.urlunsplit(p._replace(netloc=host, path=urllib.parse.quote(p.path, safe="%/:@!$&'()*+,;=~"),
                                              query=urllib.parse.quote(p.query, safe="%/:?@!$&'()*+,;=~[]"), fragment=""))
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; plutarch)"})
-    with urllib.request.urlopen(req, timeout=25) as r: t = r.read(4_000_000).decode(r.headers.get_content_charset() or "utf8", "replace")
+    end, got = time.time() + 2 * secs, b""                     # the timeout is per read: a page that drips never hits it
+    with urllib.request.urlopen(req, timeout=secs) as r:
+        while len(got) < 4_000_000:
+            if time.time() > end: raise TimeoutError("the page was too slow")
+            part = r.read1(65536)
+            if not part: break
+            got += part
+        return got.decode(r.headers.get_content_charset() or "utf8", "replace")
+
+def plain(t):
     t = re.sub(r"(?is)<(script|style)\b.*?</\1>|<sup\b[^>]*reference.*?</sup>", " ", t)      # a footnote number is not a date
     return html.unescape(re.sub(r"<[^>]+>", " ", t))
+
+def page(url): return plain(fetch(url))
+
+def plainly(t): return " ".join(re.findall(r"\w+", t.lower()))
 
 def same(u1, u2):
     def plain(u):

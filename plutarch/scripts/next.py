@@ -214,12 +214,16 @@ if who == "FULL NAME":
         ['python3 scripts/film.py set subject "FULL NAME"      # the person the user asked for (their name is in the request), e.g. "Abraham Lincoln"'])
 if len(facts) < 5 or not sentence_ok:
     search_ok = importlib.util.find_spec("ddgs") or os.environ.get("SEARXNG_URL") or os.environ.get("BRAVE_API_KEY")
-    do = ([] if search_ok else ["find_audio.py web needs a search engine. Run: python3 -m pip install ddgs   (or use your own web search tool for the next two lines)"]) + [f'python3 scripts/find_audio.py web "{who} biography"',
+    do = (['python3 scripts/find_facts.py      # about a minute; prints facts that are on two pages, each with its ready film.py fact command',
+           "  -> run the film.py fact lines that tell the story, 5 in all, exactly as printed.",
+           "Not enough, or the wrong person? Search and add your own:"] if len(facts) < 5 else []) + (
+          [] if search_ok else ["  find_audio.py web needs a search engine. Run: python3 -m pip install ddgs   (or use your own web search tool for the next two lines)"]) + [
+          f'python3 scripts/find_audio.py web "{who} biography"',
           f'python3 scripts/find_audio.py web "{who} career timeline"',
           'python3 scripts/film.py sentence "He rose from ___, it cost him ___, and then ___."      # the whole film in one sentence',
           'python3 scripts/film.py fact "Born March 3, 1960 in Ohio" https://first-source https://second-source',
-          "  -> one film.py fact per fact, 5 or more. Each fact needs TWO different URLs from the search results.",
-          "Use only facts you found in the search results. Copy the URLs exactly.",
+          "  -> one film.py fact per fact, 5 or more. Each fact needs TWO different URLs, and both pages must say it.",
+          "Use only facts you found. Copy the URLs exactly.",
           "If a search prints ERROR: web search failed, run it again or change the words."]
     say(2, "story first: one sentence and 5 facts with two sources each", do,
         why=f"story.md has {len(facts)} fact rows with two URLs (need 5)" + ("" if sentence_ok else " and no one-sentence summary yet"))
