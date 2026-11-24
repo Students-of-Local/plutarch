@@ -67,6 +67,29 @@ class ClipPy(Project):
         c = json.load(open(os.path.join(self.proj, "film.json")))["clips"]["turn"]
         self.assertEqual((c["in"], c["out"], c["text"]), (9.0, 13.5, "I won it"))   # each command keeps the words it was built from
 
+    def test_caption_fix_is_a_film_py_command(self):
+        """A wrong heard word is fixed with the film.py command clip.py prints, not by editing "lines" by hand."""
+        tree = ast.parse(open(CLIP).read())
+        ns = {"shlex": shlex}
+        for name in ("phrases_from", "lines_cmd"):
+            exec(compile(ast.Module([next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)], []), CLIP, "exec"), ns)
+        self.ready_for_clips()
+        film_py = os.path.join(KIT, "film.py")
+        run = lambda cmd: subprocess.run(["bash", "-c", cmd.replace("python3 scripts/film.py", f"{shlex.quote(sys.executable)} {shlex.quote(film_py)}")],
+                                         cwd=self.proj, capture_output=True, text=True)
+        self.assertEqual(run('python3 scripts/film.py clip turn interview 10 12.5 "I won it" 2007 "the Heisman"').returncode, 0)
+        heard = [{"w": w, "s": 10 + i * 0.3, "e": 10.2 + i * 0.3, "p": 0.9} for i, w in enumerate(["I", "one", "it."])]
+        with open(os.path.join(self.proj, "clips", "turn.json"), "w") as f: json.dump({"words": heard}, f)
+        cmd = ns["lines_cmd"]("turn", heard)
+        self.assertEqual(cmd, "python3 scripts/film.py clip turn --lines 'I one it.'")
+        r = run(cmd.replace("one", "won")); self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(json.load(open(os.path.join(self.proj, "film.json")))["clips"]["turn"]["lines"], ["I won it."])
+        r = run("python3 scripts/film.py clip turn --lines 'I won'")       # word count must match what was heard
+        self.assertEqual(r.returncode, 1); self.assertIn("3 words were heard: I one it.", r.stdout)
+        self.assertEqual(run("python3 scripts/film.py clip turn --no-lines").returncode, 0)
+        self.assertNotIn("lines", json.load(open(os.path.join(self.proj, "film.json")))["clips"]["turn"])
+        self.assertNotIn('(same number of words) and run make again', open(CLIP).read())
+
     def test_free_key_lists_match(self):
         lists = [re.search(r'\["start", "risk", "cost", "turn", "payoff", "comeback"\]', open(os.path.join(KIT, n)).read())
                  for n in ("film.py", "next.py", "clip.py")]

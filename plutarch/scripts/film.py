@@ -9,6 +9,8 @@
       add --live for a crowd or phone recording, --isolate for music under the voice
       each quote has its own key; a key that holds a different quote is refused (--replace swaps it)
   python3 scripts/film.py clip start --isolate                  # change one clip: --live --isolate --no-live --no-isolate
+  python3 scripts/film.py clip start --lines "I was told" "I could not do it"   # captions: the heard words, corrected
+      clip.py prints this command with the heard words filled in; change only the wrong words (--no-lines undoes it)
   python3 scripts/film.py scenes clear                          # remove the template scenes
   python3 scripts/film.py scene add card --heading "NOVEMBER 6, 1860" --line "Elected president" --say "One fact." --clip start
   python3 scripts/film.py scene add title                       # uses "title" and "subject"
@@ -111,12 +113,14 @@ def free_key(used):
 
 def cmd_clip(a):
     flags = [x for x in a if x.startswith("--")]; a = [x for x in a if not x.startswith("--")]
+    if "--lines" in flags: return clip_lines(a)
     if len(a) == 1 and flags:                           # film.py clip KEY --isolate | --live | --no-live | --no-isolate
         f = load(); c = f.get("clips", {}).get(a[0])
         if not isinstance(c, dict) or is_tpl(c): die(f"no clip {a[0]!r}.")
         for x in flags:
-            if x not in ("--live", "--isolate", "--no-live", "--no-isolate", "--replace"): die(f"unknown option {x}.")
-            c[x.replace("--no-", "--")[2:]] = not x.startswith("--no-")
+            if x not in ("--live", "--isolate", "--no-live", "--no-isolate", "--no-lines", "--replace"): die(f"unknown option {x}.")
+            if x == "--no-lines": c.pop("lines", None)
+            elif x != "--replace": c[x.replace("--no-", "--")[2:]] = not x.startswith("--no-")
         save(f); print(f"OK clip {a[0]}: live={bool(c.get('live'))} isolate={bool(c.get('isolate'))}"); return
     if len(a) != 7: die('use: film.py clip KEY SOURCE IN OUT "exact words" YEAR "what it is about"  [--live] [--isolate]')
     k, src, i, o, text, year, about = a; f = load()
@@ -139,6 +143,23 @@ def cmd_clip(a):
     for kk in ("live", "isolate", "lines"):            # keep what was set on this clip before unless told otherwise
         if kk in clips.get(k, {}) and kk not in c and f"--no-{kk}" not in flags: c[kk] = clips[k][kk]
     clips[k] = c; f["clips"] = clips; save(f); print(f"OK clip {k} ({o - i:.1f} s)   ({len(clips)} clip(s))")
+
+def clip_lines(a):
+    """film.py clip KEY --lines "caption line" ...: the caption words, one argument per line, same count as heard."""
+    if len(a) < 2: die('use: film.py clip KEY --lines "first caption line" "second caption line" ...')
+    k, lines = a[0], [l.strip() for l in a[1:]]
+    f = load(); c = f.get("clips", {}).get(k)
+    if not isinstance(c, dict) or is_tpl(c): die(f"no clip {k!r}.", "use one of: " + ", ".join(kk for kk, v in f.get("clips", {}).items() if not is_tpl(v)))
+    long = [l for l in lines if words(l) > 9 or not l]
+    if long: die(f"caption line {long[0]!r} has {words(long[0])} words.", "a caption line is 1-9 words: split it into two arguments.")
+    try: heard = [w["w"] for w in json.load(open(f"clips/{k}.json", encoding="utf8"))["words"]]
+    except (OSError, ValueError, KeyError, TypeError): heard = None
+    n = sum(words(l) for l in lines)
+    if heard is not None and n != len(heard):
+        die(f"these lines have {n} words, but {len(heard)} words were heard: {' '.join(heard)}",
+            f"give exactly {len(heard)} words: copy the command clip.py printed for {k} and change only the wrong words.")
+    c["lines"] = lines; save(f)
+    print(f"OK clip {k}: captions set ({len(lines)} line(s), {n} words). Next: python3 scripts/next.py")
 
 SCENE_FLAGS = {"--at": "_at", "--id": "id", "--heading": "heading", "--bg": "bg", "--ghost": "ghost", "--text": "text",
                "--accent-text": "accent_text", "--accent-word": "accent_word", "--reveal": "reveal", "--chant": "chant", "--peak": "peak"}
@@ -262,7 +283,8 @@ def cmd_show(a):
 EXAMPLES = {"FULL NAME", "TWO WORDS.", "2-3 WORDS.", "up to 7 words", "One fact from story.md, max 16 words.", "SHOW (YEAR)", "URL",
             "the exact words said", "what he was talking about", "Born March 3, 1960 in Ohio", "https://first-source",
             "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT",
-            "the line, respelled", "the words after >>>", "SOURCE", "First words of a narrator line", "The line, respelled the way it sounds."}
+            "the line, respelled", "the words after >>>", "SOURCE", "First words of a narrator line", "The line, respelled the way it sounds.",
+            "I was told", "I could not do it"}
 for x in sys.argv[2:]:
     if x.strip() in EXAMPLES or "___" in x or placeholder(x):
         die(f"{x!r} is the example text from next.py.", "write the real value for this film there, then run the command again.")
