@@ -110,6 +110,19 @@ class NextPy(Project):
         self.assertEqual(len(cmds), 1, cmds)
         self.assertIn("transcribe.py src/interview.mp3 >", cmds[0]); self.assertNotIn("speech", cmds[0])
 
+    def test_any_downloaded_recording_counts(self):
+        """qwen3:4b (2026-11-24) got src/interview.mpg from archive.org; next.py kept saying src/ had no audio."""
+        self.film(subject="Tim Tebow")
+        p = os.path.join(self.proj, "story.md"); s = open(p).read()
+        s = s.replace('"He/She/They ____________, it cost ____________, and then ____________."', "He rose, it cost him, and then he won.")
+        open(p, "w").write(s.replace("| 1 | | | |", "\n".join(f"| {i} | f | https://a.test/{i} | https://b.test/{i} |" for i in range(1, 6))))
+        open(os.path.join(self.proj, "src", "interview.mpg"), "wb").close()
+        self.assertIn("film.py source interview src/interview.mpg", self.run_next())
+        open(os.path.join(self.proj, "src", "speech.xyz"), "wb").close()
+        self.film(sources={"interview": {"file": "src/interview.mpg", "credit": "Show (2010)", "url": "https://x.test"},
+                           "speech": {"file": "src/speech.xyz", "credit": "Event (2012)", "url": "https://x.test"}})
+        self.assertIn("STEP 4 of 12: transcribe src/interview.mpg and src/speech.xyz", self.run_next())
+
     def test_old_kit_cut_is_redone_after_an_edit(self):
         self.ready_for_clips()
         clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}
