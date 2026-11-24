@@ -25,6 +25,10 @@ def retype(cid, c, **change):
     return (f"python3 scripts/film.py clip {cid} {c.get('src')} {t(c.get('in', 0))} {t(c.get('out', 0))} "
             f"{q(str(c.get('text') or 'the exact words said'))} {c.get('year') or 'YEAR'} {q(str(c.get('about') or 'what he was talking about'))}")
 
+def lines_cmd(cid, sel):
+    """The film.py command that sets this clip's captions, filled with the heard words."""
+    return f"python3 scripts/film.py clip {cid} --lines " + " ".join(shlex.quote(p["text"]) for p in phrases_from(sel, None)[0])
+
 def widened(cid, c):
     i = max(0.0, float(c["in"]) - 1); return retype(cid, c, **{"in": i, "out": min(float(c["out"]) + 1, i + 25)})
 
@@ -119,7 +123,7 @@ def phrases_from(words, lines):
             for l in lines:
                 n = len(l.split()); out.append({"text": l, "words": [{"w": tw, "s": words[k + q]["s"]} for q, tw in enumerate(l.split())]}); k += n
             return out, None
-        warn = f"\"lines\" has {need_n} words but {len(words)} were heard; using the heard words. Fix \"lines\" to match word for word."
+        warn = f"the captions (\"lines\") have {need_n} words but {len(words)} were heard; using the heard words."
     else: warn = None
     out = []; cur = []
     for i, w in enumerate(words):
@@ -299,7 +303,7 @@ def make_one(cid, film):
     heard_text = " ".join(w["w"] for w in sel)
     low = [w["w"] for w in sel if w["p"] < 0.5]
     phr, warn = phrases_from(sel, c.get("lines"))
-    if warn: notes.append(warn)
+    if warn: notes.append(warn + "  Set them again, changing only wrong words:  " + lines_cmd(cid, sel))
     sim = similarity(want, heard_text) if want else 1.0
     if verified != "pitch" and not conflict:
         verified = "asr" if (len(low) <= max(1, len(sel) // 4) and sim >= 0.8) else "unverified"
@@ -324,14 +328,16 @@ def cmd_make(a):
         for n in notes: print(f"  [{cid}] {n}")
         bad += row[3] == "unverified"
     table(rows, ["clip", "exact in-out (s)", "length", "verified", "heard"])
-    print(f"\n{'OK' if not bad else 'FIX NEEDED'}: {len(rows) - bad}/{len(rows)} clips verified. Captions will use the \"heard\" words; "
-          f"if a heard word is wrong, give the right words in \"lines\" (same number of words) and run make again.")
+    print(f"\n{'OK' if not bad else 'FIX NEEDED'}: {len(rows) - bad}/{len(rows)} clips verified. Captions use the \"heard\" words. "
+          f"If a heard word is wrong, python3 scripts/clip.py show KEY prints the command that fixes it.")
     sys.exit(1 if bad else 0)
 
 def cmd_show(a):
     d = load_json(f"clips/{a.id}.json")
     print(f"{d['id']}  {d['dur']}s  verified={d['verified']}  similarity={d['similarity']}")
     for p in d["phrases"]: print("  " + "  ".join(f"{w['w']}@{w['s']:.2f}" for w in p["words"]))
+    print("If a caption word is wrong, run this with only the wrong words changed (keep the same number of words):\n  "
+          + lines_cmd(a.id, d["words"]))
 
 ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
 f = sub.add_parser("find"); f.add_argument("transcript"); f.add_argument("phrase"); f.add_argument("-n", type=int, default=4); f.set_defaults(fn=cmd_find)

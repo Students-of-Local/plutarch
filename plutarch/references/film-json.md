@@ -31,7 +31,7 @@ each clip and narrator line. Start from `templates/film.json`.
 | `year`, `about` | when the thing he is talking about happened, and what he was talking about. Required. Stops you putting a quote under the wrong date. |
 | `live` | `true` for noisy field recordings (crowd, phone video). Needs `text`. The voice is separated and the timing is checked against voice pitch. |
 | `isolate` | `true` when there is music under the voice (someone else's edit). The cleaned voice is used in the film. |
-| `lines` | optional: your own caption line breaks/punctuation. Must have the same number of words as were heard. |
+| `lines` | optional: your own caption line breaks/punctuation. Must have the same number of words as were heard. Set it with `film.py clip KEY --lines "line" ...`; `clip.py show KEY` prints that command with the heard words. |
 | `speaker` | only if someone other than the subject is speaking: `"an employee"`. |
 
 ## Scenes
