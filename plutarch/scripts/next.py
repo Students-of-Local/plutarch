@@ -9,6 +9,8 @@ It only reads files and lists processes. It never changes the film. Finishes wit
 import os, sys, re, json, glob, hashlib, subprocess, importlib.util, time, shlex
 WAIT = "--wait" in sys.argv
 IDLE_WAIT = False   # set when --wait finds no job running
+IGNORED = []        # film.json keys the kit never reads
+FILM_KEYS = {"title", "subject", "accent", "max_seconds", "narrator", "music", "sources", "clips", "scenes"}
 
 KIT = os.path.dirname(os.path.realpath(__file__))
 QKIT = shlex.quote(KIT)
@@ -21,6 +23,9 @@ def here(line):
 
 def say(step, title, do, why=None, then="python3 scripts/next.py"):
     print(f"STEP {step} of {TOTAL}: {title}")
+    if IGNORED:
+        print(f"NOTE: film.json has keys the kit never reads: {', '.join(IGNORED)}. Facts go in story.md (film.py fact), "
+              "recordings in sources (film.py source). Use the film.py commands below; writing film.json by hand does nothing.")
     if IDLE_WAIT and any(l.startswith("nohup ") for l in do):
         print("NOT STARTED: nothing is running, so --wait had nothing to wait for. Run the nohup line below first, then --wait.")
     if why: print(f"WHY: {why}")
@@ -153,6 +158,7 @@ if not (os.path.exists("film.json") and os.path.isdir("scripts")):
 proj = os.getcwd()
 CD = f"cd {shlex.quote(proj)} && "
 film = load("film.json")
+IGNORED = sorted(k for k in film if k not in FILM_KEYS and not k.startswith("_"))
 subject = film.get("subject", "")
 who = subject if subject and "<<" not in subject else "FULL NAME"
 
