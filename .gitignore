@@ -1,0 +1,4 @@
+distill/prompt.md
+runs/
+__pycache__/
+*.pyc

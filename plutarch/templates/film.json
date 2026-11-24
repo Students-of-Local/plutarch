@@ -1,0 +1,59 @@
+{
+  "_readme": "Replace every value in double angle brackets. The scripts refuse to run while any are left. Scenes play in this order; you never write timestamps. Field list: references/film-json.md",
+
+  "title": "<<TWO OR THREE WORDS, CAPITALS, ENDS WITH A PERIOD.>>",
+  "subject": "<<Full Name>>",
+  "accent": "<<#RRGGBB - one color that fits the subject>>",
+  "max_seconds": 140,
+  "narrator": {"engine": "kokoro", "voice": "am_michael", "speed": 0.95},
+  "music": {"synth": true},
+
+  "sources": {
+    "interview": {"file": "src/interview.mp3", "credit": "<<Show Name (year)>>", "url": "<<https://...>>"},
+    "event":     {"file": "src/event.mp4",     "credit": "<<Place, Month Day, Year (via @whoposted)>>", "url": "<<https://...>>"}
+  },
+
+  "clips": {
+    "bet":    {"src": "interview", "in": 0.0, "out": 0.0, "text": "<<exact words, 1-4 s: the risk in his own words>>", "year": 0, "about": "<<what he was talking about>>"},
+    "cost":   {"src": "interview", "in": 0.0, "out": 0.0, "text": "<<exact words, 8-20 s: what it cost him>>", "year": 0, "about": "<<what he was talking about>>"},
+    "again":  {"src": "interview", "in": 0.0, "out": 0.0, "text": "<<exact words, 1-4 s: a short, surprising answer>>", "year": 0, "about": "<<the question he was answering>>"},
+    "payoff": {"src": "event", "in": 0.0, "out": 0.0, "live": true, "text": "<<exact words: the line the whole film leads to>>", "year": 0, "about": "<<when and where he said it>>"}
+  },
+
+  "scenes": [
+    {"type": "arena", "id": "open", "reveal": "hits", "chant": "<<ONE WORD THE CROWD SAYS, or delete this key>>",
+     "under": {"src": "event", "in": 0, "out": 6.5, "gain": -17, "drums": true}},
+
+    {"type": "title", "text": "<<SAME AS title>>", "sub": ["<<FULL NAME>>", "<<YEAR — YEAR>>"]},
+
+    {"type": "card", "id": "origin", "bg": "glow", "heading": "<<DATE IT BEGAN>>",
+     "lines": ["<<max 7 words>>", "<<max 7 words>>"],
+     "items": [{"say": "<<One fact with a date and a place. Max 16 words.>>"}]},
+
+    {"type": "card", "id": "bet", "heading": "<<YEAR OF THE RISK>>", "lines": ["<<what was at stake>>", "<<max 7 words>>"],
+     "items": [{"say": "<<One fact that sets up the quote. Max 16 words.>>"}, {"clip": "bet", "big": true}]},
+
+    {"type": "chart", "id": "rise", "heading": "<<2-4 WORDS>>", "label": "<<WHAT THE NUMBER IS (APPROX.)>>", "prefix": "$", "unit": 1e9,
+     "source": "<<URL or publication the numbers come from>>",
+     "points": [[2000, 1], [2010, 2], [2020, 3]],
+     "stamps": [[2020, "<<BIG MILESTONE>>", "<<MONTH YEAR>>"]],
+     "items": [{"say": "<<One short line. Max 8 words.>>"}, {"gap": 4.0}]},
+
+    {"type": "stack", "id": "cost", "heading": "THE COST", "words": ["<<word1 he says>>", "<<word2>>", "<<word3>>"], "accent_word": "<<the last, heaviest word>>",
+     "items": [{"clip": "cost"}]},
+
+    {"type": "card", "id": "again", "ghost": "<<THE FIRST YEAR>>", "lines": ["<<the question he was asked>>"],
+     "items": [{"say": "<<The question, as a fact. Max 16 words.>>"}, {"clip": "again"}]},
+
+    {"type": "card", "id": "fall", "bg": "pulse", "heading": "<<DATE OF THE SETBACK>>",
+     "lines": [{"text": "<<max 7 words>>", "at": "<<a word from the narrator line>>"}],
+     "items": [{"say": "<<What happened. Max 16 words.>>"}, {"gap": 1.2}]},
+
+    {"type": "arena", "id": "return", "reveal": "rise", "peak": "payoff", "heading": "<<DATE OF THE RESOLUTION>>",
+     "lines": ["<<max 7 words>>"],
+     "under": {"src": "event", "in": 0, "out": 30.0, "gain": -24},
+     "items": [{"say": "<<What happened. Max 16 words.>>"}, {"gap": 0.8}, {"clip": "payoff"}, {"gap": 1.0}]},
+
+    {"type": "end", "text": "<<SAME AS title>>", "accent_text": "<<2-3 WORDS THAT ANSWER THE TITLE.>>"}
+  ]
+}
