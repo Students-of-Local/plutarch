@@ -68,7 +68,7 @@ Never say "done", "verified" or "synced" before next.py prints `DONE`.
 | `STEP 0 ... install the tools` | Run the setup command it prints. If pip fails, make the virtualenv it names, then run it again. |
 | `find_audio.py` finds no podcast | Try `find_audio.py archive "NAME"` and `find_audio.py web "NAME interview audio"`. YouTube is often blocked on servers; read `references/finding-audio.md`. |
 | `clip.py find` shows nothing useful | Search other words: one strong word, a place, a year, a name. Try the other transcript. |
-| A clip is `NOT VERIFIED` | Run the same `film.py clip KEY ...` again with the words from the `heard` column. |
+| A clip is `NOT VERIFIED` | Run the same `film.py clip KEY ...` again with the words from the `heard` column. Crowd or phone recording: `film.py clip KEY --live`. |
 | `film.py` prints `ERROR` | Read its `FIX:` line, change that one value, and run the command again. |
 | `film.json is not valid JSON` | Someone edited it by hand. next.py prints the line and column; fix that spot once, then use film.py. |
 | `plan.py` says `OVER by` | Remove one quote or one narrator line. Never speed up the narrator. |
@@ -86,13 +86,15 @@ DO:
   cd ./films/SHORTNAME
   python3 scripts/next.py
 ```
-The agent runs `setup.py --init ./films/lincoln`, then `cd ./films/lincoln`, then `python3 scripts/next.py`:
+The agent runs `setup.py --init ./films/lincoln`, then `cd ./films/lincoln && python3 scripts/next.py`:
 ```
 STEP 2 of 12: write the subject's name into film.json
 DO:
-  python3 scripts/film.py set subject "FULL NAME"
+  cd /home/me/films/lincoln && python3 scripts/film.py set subject "FULL NAME"
+THEN: cd /home/me/films/lincoln && python3 scripts/next.py
 ```
-The agent runs `python3 scripts/film.py set subject "Abraham Lincoln"` and runs next.py again. It keeps going
+The agent runs `cd /home/me/films/lincoln && python3 scripts/film.py set subject "Abraham Lincoln"`, then the
+`THEN:` line. Every command next.py prints starts with that `cd`, so keep it. It keeps going
 the same way: `film.py fact` for each fact it found, download two recordings, `film.py source`, transcribe,
 `film.py clip` for each quote, `film.py scene add` for each scene,
 narrate, plan, mix, render, until next.py prints `DONE: check.py passed for out/final.mp4 (118.4 s).`
