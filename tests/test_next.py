@@ -98,6 +98,18 @@ class NextPy(Project):
         os.utime(os.path.join(self.proj, "src", "interview.mp3"), (t + 10, t + 10))
         self.assertIn("STEP 4 of 12: transcribe src/interview.mp3", self.run_next())
 
+    def test_one_command_transcribes_every_pending_recording(self):
+        """LFM2.5-24B (2026-11-24) ran the first transcribe, then polled a finished log and never started the second."""
+        self.ready_for_clips()
+        for n in ("interview", "speech"): os.remove(os.path.join(self.proj, "tx", n + ".json"))
+        cmds = [c for c in self.commands(self.run_next()) if "transcribe.py" in c]
+        self.assertEqual(len(cmds), 1, cmds)
+        self.assertIn("transcribe.py src/interview.mp3 src/speech.mp3 >", cmds[0])
+        with open(os.path.join(self.proj, "tx", "speech.json"), "w") as f: f.write("{}")
+        cmds = [c for c in self.commands(self.run_next()) if "transcribe.py" in c]
+        self.assertEqual(len(cmds), 1, cmds)
+        self.assertIn("transcribe.py src/interview.mp3 >", cmds[0]); self.assertNotIn("speech", cmds[0])
+
     def test_old_kit_cut_is_redone_after_an_edit(self):
         self.ready_for_clips()
         clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}

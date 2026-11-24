@@ -212,13 +212,12 @@ if len(sources) < 2:
         why="the film needs real voice from at least 2 sources (check.py and the acceptance checks require it).")
 
 # ---- 4. transcripts ----
-for k, v in sources.items():
-    stem = os.path.splitext(os.path.basename(v["file"]))[0]
-    if mtime(f"tx/{stem}.json") < mtime(v["file"]):
-        say(4, f"transcribe {v['file']}",
-            [f"nohup python3 scripts/transcribe.py {shlex.quote(v['file'])} > out/tx.log 2>&1 &",
-             "python3 scripts/next.py --wait      # waits while transcribe runs"], then=None,
-            why="you search the transcript for quotes. A 1-hour file takes about 5-10 minutes.")
+todo = [v["file"] for v in sources.values() if mtime(f"tx/{os.path.splitext(os.path.basename(v['file']))[0]}.json") < mtime(v["file"])]
+if todo:
+    say(4, "transcribe " + " and ".join(todo),
+        [f"nohup python3 scripts/transcribe.py {' '.join(shlex.quote(f) for f in todo)} > out/tx.log 2>&1 &",
+         "python3 scripts/next.py --wait      # waits while transcribe runs" + (": one command does every file" if len(todo) > 1 else "")],
+        then=None, why="you search the transcript for quotes. A 1-hour file takes about 5-10 minutes on a CPU.")
 
 # ---- 5. quotes ----
 clips = film.get("clips", {})

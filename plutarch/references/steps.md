@@ -39,10 +39,10 @@ of `SHOW (YEAR)` and run it; the first source replaces the template entries.
 ### 3. Transcribe
 
 ```
-nohup python3 scripts/transcribe.py src/interview.mp3 > out/tx.log 2>&1 &
+nohup python3 scripts/transcribe.py src/interview.mp3 src/speech.m4a > out/tx.log 2>&1 &
 ```
-A 90-minute interview takes 5-15 minutes on a CPU. Done when the log ends with
-`OK wrote tx/interview.json and tx/interview.txt (N lines).` Do this for every source.
+Name every source in one command; it does them one after the other. A 90-minute interview takes
+5-15 minutes on a CPU. Done when the log ends with `OK: 2 file(s) transcribed.`
 
 ### 4. Pick 6-10 quotes and cut them
 
