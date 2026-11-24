@@ -9,14 +9,14 @@ from test_next import Project, KIT
 sys.path.insert(0, KIT)
 import find_facts
 
-WIKI = """<table class="infobox"><tr><td>Born <span class="bday">1809-02-12</span> February 12, 1809<li>Wrestling Hall of Fame (1992)</li></td></tr></table>
-<p>Abraham Lincoln was a lawyer.<sup class="reference"><a href="#n">[1]</a></sup> In 1860, Lincoln was elected president, beating three rivals in a close race.</p>
+WIKI = """<table class="infobox"><tr><td>Born <span class="bday">1809-02-12</span> February 12, 1809</td></tr></table>
+<p>Abraham Lincoln (February 12, 1809 - April 15, 1865) was a lawyer. In 1970, Lincoln opened a plant in Ohio with many workers.<sup class="reference"><a href="#n">[1]</a></sup> In 1860, Lincoln was elected president, beating three rivals in a close race.</p>
+<p>In 1842, Lincoln married Mary Todd. In 1832, Lincoln led a militia company in the war. In November 1863, Lincoln gave the Gettysburg speech at noon.</p>
 <p>Lincoln moved to Springfield in 1837. He proposed to her in 1842. Lincoln planned a trip in 1863, but stayed home.
 The bill passed and Lincoln signed the Homestead Act in 1862 at his desk in the White House after lunch.</p>
-<a href="{u}/bio">1</a> <a href="{u}/copy">2</a> <a href="{u}/other">3</a> <a href="{u}/gone">4</a>"""
+<a href="{u}/bio">1</a> <a href="{u}/copy">2</a> <a href="{u}/other">3</a> <a href="{u}/gone">4</a> <a href="{u}/bio?$(touch$IFS/PWNED)">5</a>"""
 LINCOLN = "<p>Abraham Lincoln was born on February 12, 1809.</p>"
-BIO = LINCOLN + """<p>Lincoln was elected president in 1860. He proposed to her in 1842. He planned a trip in 1863. He moved to Springfield in 1837.
- The Wrestling Hall of Fame listed this honor in 1992. </p> <p>Lincoln joined the army in 1832.</p>"""
+BIO = LINCOLN + """<p>Lincoln was elected president in 1860. He proposed to her in 1842. He planned a trip in 1863. He moved to Springfield in 1837.He married Mary Todd in 1842. He led the state militia company in 1832. He gave the Gettysburg speech in 1863. Lincoln opened a plant in Ohio with workers in 1970.</p> <p>Lincoln joined the army in 1832.</p>"""
 COPY = LINCOLN + """<p>The bill passed and Lincoln signed the Homestead Act in 1862 at his desk in the White House after lunch.</p>"""
 OTHER = "<p>Stephen Douglas moved to Springfield in 1837. Lincoln was elected president in 1860.</p>"
 
@@ -24,6 +24,7 @@ OTHER = "<p>Stephen Douglas moved to Springfield in 1837. Lincoln was elected pr
 class Handler(http.server.BaseHTTPRequestHandler):
     seen = []
     def do_GET(self):
+        self.path = self.path.split("?")[0] if "$" in self.path else self.path
         u = f"http://127.0.0.1:{self.server.server_port}"; Handler.seen.append(self.path)
         body = {"/wiki": WIKI.replace("{u}", u), "/bio": BIO, "/copy": COPY, "/other": OTHER}.get(self.path)
         self.send_response(200 if body else 404); self.end_headers(); self.wfile.write((body or "").encode())
@@ -52,7 +53,7 @@ class FindFacts(Project):
         got = self.found(out)
         self.assertIn("Abraham Lincoln was born on February 12, 1809.", got, out)
         self.assertIn("In 1860, Lincoln was elected president.", got, out)          # cut at the clause the second page does not have
-        self.assertIn("Lincoln moved to Springfield in 1837.", got)
+        self.assertIn("Lincoln moved to Springfield in 1837.", got); self.assertNotIn("1970", " ".join(got))      # after the death: the car company
         self.assertTrue(out.count(f'"{self.url}/bio"') >= 3 and "/other" not in out, out)   # /other never names the person in full
         for l in (l.strip() for l in out.splitlines() if "film.py fact" in l):
             r = subprocess.run(["bash", "-c", l.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")],
@@ -72,8 +73,8 @@ class FindFacts(Project):
         self.assertNotIn("Homestead", " ".join(self.found(self.find(self.url + "/wiki")[1])))
 
     def test_the_wrong_person(self):
-        code, out = self.find(self.url + "/wiki", who="Mary Todd")
-        self.assertEqual(code, 1); self.assertIn('find_audio.py web "Mary Todd biography"', out)
+        code, out = self.find(self.url + "/wiki", who="Jane Roe")
+        self.assertEqual(code, 1); self.assertIn('find_audio.py web "Jane Roe biography"', out)
 
     def test_a_subject_is_needed_first(self):
         code, out = self.find(who="<<FULL NAME>>"); self.assertEqual(code, 1); self.assertIn("film.py set subject", out)
@@ -91,15 +92,54 @@ class FindFacts(Project):
     def test_whole_sentences_only(self):
         for text, want in (("In 2013, Ginsburg dissented in Shelby County v. Holder over voting rights.", ["In 2013, Ginsburg dissented in Shelby County v. Holder over voting rights."]),
                            ("Friends saw St. Mark's Church where Ginsburg was baptized in 1899.", ["Friends saw St. Mark's Church where Ginsburg was baptized in 1899."]),
-                           ("PARIS; Ruth Ginsburg has pulled out of three events in 2005.", []), ("In 1966, the year Ruth Ginsburg died.", []), ("Ruth Ginsburg, photographed in 1951.", []), ("In a 1995 interview, Ginsburg said:", []), ("In 2010, Martin Ginsburg died of cancer.", []), ("A second, Ginsburg: My Life, appeared in 1997.", [])):
+                           ("PARIS; Ruth Ginsburg has pulled out of three events in 2005.", []), ("In 1966, the year Ruth Ginsburg died.", []), ("Ruth Ginsburg, photographed in 1951.", []), ("In a 1995 interview, Ginsburg said:", []), ("In 1957, Ginsburg met the Rev. Martin King at noon.", ["In 1957, Ginsburg met the Rev. Martin King at noon."]), ("In 2010, Martin Ginsburg died of cancer.", []), ("A second, Ginsburg: My Life, appeared in 1997.", [])):
             art = find_facts.Article(); art.paras = [text]
             self.assertEqual(find_facts.sentences(art, "Ruth Bader Ginsburg"), want, text)
 
     def test_timeline_sites_are_skipped(self):
         for u in ("https://populartimelines.com/x", "https://www.timetoast.com/x"): self.assertTrue(find_facts.SKIP.search(u), u)
 
+    def test_a_link_cannot_run_a_command(self):
+        """The printed line is run by bash: a link with $(...) in it would run on the user's computer."""
+        self.find(self.url + "/wiki"); f = os.path.join(self.proj, "out", "found.json"); d = json.load(open(f))
+        self.assertTrue(d["facts"] and not [g for g in d["facts"] if "$" in g[2]])
+        for g in d["facts"]: g[2] += "?$(touch${IFS}PWNED)"
+        d["facts"] = d["facts"] * 3; json.dump(d, open(f, "w")); self.assertNotIn("$(", self.find(self.url + "/wiki")[1])
+        self.assertIn("give a Wikipedia address", self.find("https://a.test/$(id)")[1])
+
+    def test_who_claims_it_is_never_cut(self):
+        for s in ("Earhart died on Nikumaroro in 1937, according to researcher Ric Gillespie.", "Earhart died on Nikumaroro in 1937, as Ric Gillespie claims.", "Earhart landed on Nikumaroro in 1937, waiting for help, but few agree."):
+            self.assertEqual(find_facts.variants(s, "Earhart"), [s])
+
+    def test_a_cut_form_is_checked_too(self):
+        self.assertNotIn("In 1966, the year Walt Disney died.", find_facts.variants("In 1966, the year Walt Disney died, the park grew.", "Disney"))
+        self.assertNotIn("Kahlo died on July 13, 1954, about a week.", find_facts.variants("Kahlo died on July 13, 1954, about a week after her birthday.", "Kahlo"))
+
+    def test_names_that_look_like_ranks(self):
+        self.assertIn("In 1914, Ruth signed with Boston.", find_facts.variants("In 1914, Ruth signed with Boston, where fans cheered.", "Ruth"))
+        self.assertIn("In 1914, Ruth toured the West with a guest.", find_facts.variants("In 1914, Ruth toured the West with a guest, after the crash.", "Ruth"))
+        self.assertIn("In 2004, West released a record.", find_facts.variants("In 2004, West released a record, after the crash.", "West"))
+
+    def test_the_exact_title_wins(self):
+        real = find_facts.facts.fetch
+        find_facts.facts.fetch = lambda *a: json.dumps({"query": {"search": [{"title": "Neil Armstrong Award"}, {"title": "Neil Armstrong"}]}})
+        try: self.assertEqual(find_facts.wiki_url("neil armstrong"), "https://en.wikipedia.org/wiki/Neil_Armstrong")
+        finally: find_facts.facts.fetch = real
+
+    def test_a_lower_case_subject(self):
+        self.assertIn("Lincoln moved to Springfield in 1837.", self.found(self.find(self.url + "/wiki", who="abraham lincoln")[1]))
+
+    def test_year_of_death(self):
+        art = find_facts.Article(); art.born = "1901-12-05"; art.paras = ["", "Walter Elias Disney (December 5, 1901 \u2013 December 15, 1966) was an animator."]
+        self.assertEqual(find_facts.died(art), 1966); art.paras = ["Serena (born December 5, 1901) won."]; self.assertEqual(find_facts.died(art), 0)
+
+    def test_a_short_list_is_not_kept(self):
+        """A run on a bad network saved an empty list, and every later run repeated it."""
+        self.find(self.url + "/wiki"); f = os.path.join(self.proj, "out", "found.json"); d = json.load(open(f)); d["facts"] = []
+        json.dump(d, open(f, "w")); self.assertTrue(self.found(self.find(self.url + "/wiki")[1]))
+
     def test_a_relative_is_not_the_subject(self):
-        for s in ("Albert Lewis died in 1929.", "In 2013, Warren Lewis moved out."): self.assertFalse(find_facts.about(s, "C. S. Lewis"), s)
+        for s in ("Albert Lewis died in 1929.", "In 2013, Warren Lewis moved out.", "Mrs. Lewis died in 1960.", "C. S. Lewis Jr. won in 1960."): self.assertFalse(find_facts.about(s, "C. S. Lewis"), s)
         for s in ("C. S. Lewis died in 1963.", "Lewis wrote to Albert Lewis in 1917.", "In 1956 Lewis married.", "When Lewis left in 1917, he wrote.", "Professor Lewis spoke in 1950."):
             self.assertTrue(find_facts.about(s, "C. S. Lewis"), s)
 

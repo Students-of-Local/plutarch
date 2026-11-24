@@ -83,7 +83,7 @@ def fact_rows(s):
     return [r[0] for r in facts.rows(s)]      # line numbers
 
 def cmd_fact(a):
-    if len(a) == 2: die("you gave one page. A fact needs two different pages.", "python3 scripts/find_facts.py   prints facts with both pages.")
+    if len(a) == 2: die("you gave one page. A fact needs two different pages.", "python3 scripts/find_facts.py   # prints facts with both pages")
     if len(a) != 3: die('use: film.py fact "the fact with its date" URL1 URL2')
     text, u1, u2 = a
     for u in (u1, u2):
@@ -96,7 +96,7 @@ def cmd_fact(a):
     if not facts.OFF:
         if not who or is_tpl(who): die("film.json has no subject yet.", 'python3 scripts/film.py set subject "the person\'s name", then add the fact.')
         bad = facts.problem(text, [u1, u2], who)
-        if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works. If it fails twice, use another page." if bad[1] else "python3 scripts/find_facts.py   prints facts that are on two pages. Or open the page and use what it says. Never guess a date or number.")
+        if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works. If it fails twice, use another page." if bad[1] else "python3 scripts/find_facts.py   # prints facts that are on two pages. Or open the page and use what it says. Never guess a date or number.")
     lines = s.splitlines()
     try: head = next(i for i, l in enumerate(lines) if l.startswith("| # | Fact"))
     except StopIteration: die("story.md has no Facts table.")
