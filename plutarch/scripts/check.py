@@ -26,7 +26,7 @@ chk("length", d <= lim + 0.5 and abs(d - plan["dur"]) < 0.6, f"{d:.1f} s (limit 
 # 2 loudness
 e = subprocess.run(["ffmpeg", "-hide_banner", "-i", a.final, "-af", "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True).stderr
 I = float([l for l in e.splitlines() if l.strip().startswith("I:")][-1].split()[1]); P = float([l for l in e.splitlines() if "Peak:" in l][-1].split()[1])
-chk("loudness", -15.6 <= I <= -13.0, f"{I} LUFS (target -14)", "rerun mix.py then render.py"); chk("peak", P <= -0.9, f"{P} dB (must be below -1)", "rerun mix.py")
+chk("loudness", -15.6 <= I <= -13.0, f"{I} LUFS (target -14)", "rerun mix.py then render.py"); chk("peak", P <= -0.9, f"{P} dB (must be below -1)", "python3 scripts/render.py --mux")
 x = audio(a.final, ch=1)[:, 0]; n = int(0.1 * SR); r = np.array([np.sqrt(np.mean(x[i:i + n] ** 2)) for i in range(0, len(x) - n, n)])
 quiet = r < 10 ** (-50 / 20); run = best = 0; where = 0
 for i, q in enumerate(quiet[:-15]):

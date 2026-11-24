@@ -20,6 +20,21 @@ SYNC = load_json("out/sync.json") if os.path.exists("out/sync.json") else {"hits
 ENV = np.load("out/env.npz") if os.path.exists("out/env.npz") else None
 CUR = {"T": 0.0}
 
+# ---------- join pictures and sound ----------
+# The AAC encoder can push the peak well over mix.wav's (measured 2026-11-24: -1.6 dB in, +1.1 dB out at 256k, -1.5 dB at 320k). Rerunning
+# mix.py gives the same file, so measure the result and take the first setting that fits: (bit rate, limiter ceiling in dB).
+SOUND = [("256k", 0), ("320k", 0), ("192k", 0), ("192k", -3), ("192k", -5)]
+def true_peak(path):
+    e = subprocess.run(["ffmpeg", "-hide_banner", "-i", path, "-af", "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True).stderr
+    return float([l for l in e.splitlines() if "Peak:" in l][-1].split()[1])
+def join():
+    for rate, top in SOUND:
+        limit = ["-af", f"alimiter=level=disabled:limit={10 ** (top / 20):.4f}:attack=5:release=50"] if top else []
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", "out/scenes/list.txt", "-i", "out/mix.wav", "-map", "0:v", "-map", "1:a",
+                            "-c:v", "copy", *limit, "-c:a", "aac", "-b:a", rate, "-ar", "48000", "-movflags", "+faststart", "-shortest", "out/final.mp4"], capture_output=True, text=True)
+        if r.returncode != 0: die("ffmpeg join failed: " + r.stderr[-300:])
+        if true_peak("out/final.mp4") <= -1.0: return
+
 # ---------- fonts ----------
 FD = os.path.join(KIT, "..", "fonts"); WGHT = int.from_bytes(b"wght", "big")
 def face(fn, w):
@@ -488,7 +503,5 @@ if __name__ == "__main__":
     miss = [s["id"] for s in SC if not os.path.exists(f"out/scenes/{s['i']:02d}.mp4")]
     if miss: die(f"scenes not rendered yet: {miss}. Run render.py with no arguments.")
     with open("out/scenes/list.txt", "w") as f: f.write("".join(f"file '{s['i']:02d}.mp4'\n" for s in SC))
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", "out/scenes/list.txt", "-i", "out/mix.wav", "-map", "0:v", "-map", "1:a",
-                        "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-movflags", "+faststart", "-shortest", "out/final.mp4"], capture_output=True, text=True)
-    if r.returncode != 0: die("ffmpeg join failed: " + r.stderr[-300:])
+    join()
     print(f"OK out/final.mp4 ({duration('out/final.mp4'):.1f} s). Next: python3 scripts/check.py")
