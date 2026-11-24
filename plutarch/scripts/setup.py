@@ -27,7 +27,10 @@ def init(folder):
         dst = os.path.join(folder, f)
         if os.path.exists(dst): print(f"kept  {f} (already there)")
         else: shutil.copy(os.path.join(KIT, "..", "templates", f), dst); print(f"made  {f}")
-    print(f"\nPROJECT READY: {folder}\nNext:  cd {folder}   then  python3 scripts/next.py\nFrom inside that folder every command is:  python3 scripts/<name>.py")
+    print(f"\nPROJECT READY: {folder}")
+    r = subprocess.run([sys.executable, os.path.join(folder, "scripts", "next.py")], cwd=folder, capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip(): print("\nFIRST STEP (this is what python3 scripts/next.py prints; do it now):\n" + r.stdout.rstrip())
+    else: print(f"Next:  cd {folder}   then  python3 scripts/next.py\nFrom inside that folder every command is:  python3 scripts/<name>.py")
 NEED = [("numpy", "numpy"), ("scipy", "scipy"), ("soundfile", "soundfile"), ("pyloudnorm", "pyloudnorm"), ("librosa", "librosa"),
         ("skia", "skia-python"), ("PIL", "pillow"), ("faster_whisper", "faster-whisper"), ("yt_dlp", "yt-dlp"), ("kokoro_onnx", "kokoro-onnx")]
 NICE = [("demucs", "demucs", "separates a voice from music/noise: needed for exact word timing on anything but clean interviews"),

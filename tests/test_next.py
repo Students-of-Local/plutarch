@@ -129,5 +129,20 @@ class NextPy(Project):
         self.assertFalse(os.path.exists(os.path.join(skill, "films")), r.stdout + r.stderr)
 
 
+    def test_init_prints_the_first_step(self):
+        """setup.py --init ends with next.py's first step, so the agent never has to find it."""
+        bin_ = os.path.join(self.tmp, "bin"); os.makedirs(bin_)
+        for t in ("ffmpeg", "ffprobe"):
+            p = os.path.join(bin_, t); open(p, "w").write("#!/bin/sh\nexit 0\n"); os.chmod(p, 0o755)
+        env = dict(os.environ, PYTHONPATH=self.stubs, PATH=bin_ + os.pathsep + os.environ["PATH"])
+        r = subprocess.run([sys.executable, os.path.join(KIT, "setup.py"), "--init", "films/new"], cwd=self.tmp, env=env, capture_output=True, text=True)
+        folder = os.path.join(self.tmp, "films", "new")
+        self.assertIn("FIRST STEP", r.stdout, r.stdout + r.stderr)
+        tail = r.stdout[r.stdout.index("FIRST STEP"):]
+        self.assertIn("STEP 2 of 12", tail)
+        self.assertIn(f"cd {folder} && python3 scripts/film.py set subject", tail)
+        self.assertNotIn("Replace every value", open(os.path.join(folder, "film.json")).read())
+
+
 if __name__ == "__main__":
     unittest.main()
