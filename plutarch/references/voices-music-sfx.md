@@ -1,4 +1,4 @@
-# Narrator voice, music and sound effects — what to use
+# Narrator voice, music and sound effects: what to use
 
 Read this at steps 6 and 7. **The defaults need no GPU, no account and no key.** Use something better only if
 it is already installed or the user asks. Do not spend the session installing models.
@@ -22,9 +22,9 @@ If a "docs" recipe fails, fall back to the row above it; do not debug it for mor
   `bm_george`, `af_heart`. Pick ONE voice for the whole film. After changing it: `narrate.py --redo`.
 - Start a local OpenAI-style Kokoro server (CPU): `docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:latest`.
 - `narrate.py` listens to every line it makes. `MISREAD` means the voice said something else: spell the hard
-  word the way it sounds ("Nguyen" → "Win") and run it again.
+  word the way it sounds ("Nguyen" → "Win") with the `film.py reword` line it prints, and run it again.
 
-### Bigger local voices through `"engine": "cmd"` (docs — not run here)
+### Bigger local voices through `"engine": "cmd"` (docs, not run here)
 
 Save one of these as `tts.py` in the project. Both need a GPU.
 
@@ -63,7 +63,7 @@ Run `python3 scripts/plan.py` first: the music is made to the film's exact lengt
 
 - `pick` ranks the tracks by how well their loud and quiet parts follow the film and prints which to use.
   Put the winner in `"music": {"file": "music/<name>"}`. `TOO SHORT` means generate again at the printed length.
-- Install ACE-Step 1.5 (MIT, under 4 GB of VRAM, Python 3.11-3.12) — docs:
+- Install ACE-Step 1.5 (MIT, under 4 GB of VRAM, Python 3.11-3.12). Docs:
   `git clone https://github.com/ACE-Step/ACE-Step-1.5.git && cd ACE-Step-1.5 && uv sync && uv run acestep-api`
 - Always instrumental. No lyrics, no vocals: they fight the voices.
 - The mixer does the rest: it lowers the music under every voice, goes silent just before each impact, and
