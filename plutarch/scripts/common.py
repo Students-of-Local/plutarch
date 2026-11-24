@@ -1,6 +1,11 @@
 """Shared helpers for the plutarch kit. Run every script from your PROJECT folder (the one with film.json)."""
-import json, os, shlex, subprocess, sys, hashlib, re
-import numpy as np
+import json, os, shlex, shutil, subprocess, sys, hashlib, re
+try: import numpy as np
+except ImportError as e:                                # film.py runs before the tools are installed and needs no numpy
+    class NoNumpy:
+        why = str(e)
+        def __getattr__(self, k): die(f"numpy is not usable ({self.why}). Run: python3 scripts/setup.py --install")
+    np = NoNumpy()
 
 SR = 48000
 KIT = os.path.dirname(os.path.realpath(__file__))      # realpath: works when the project links to this folder
@@ -22,9 +27,23 @@ def load_json(p):
     except json.JSONDecodeError as e:
         die(f"{p} is not valid JSON (line {e.lineno}, col {e.colno}): {e.msg}")
 
+def write_file(p, data):
+    """Replace p whole or leave it as it was: the new bytes go to a temp file beside it, then take its name."""
+    if isinstance(data, str): data = data.encode("utf8")
+    real = os.path.realpath(p); d, base = os.path.split(real)                      # realpath: a linked file stays a link
+    tmp = os.path.join(d, f".{base}.{os.urandom(4).hex()}.tmp")
+    try:
+        with open(tmp, "xb") as f: f.write(data)
+        if os.path.exists(real): shutil.copymode(real, tmp)
+        os.replace(tmp, real)
+    except OSError as e:
+        die(f"could not write {p}: {e.strerror}. It was left as it was. Fix that (a full disk: free some space), then run the same command again.")
+    finally:
+        if os.path.exists(tmp): os.remove(tmp)
+
 def save_json(p, obj):
     os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
-    with open(p, "w", encoding="utf8") as f: json.dump(obj, f, indent=1, ensure_ascii=False)
+    write_file(p, json.dumps(obj, indent=1, ensure_ascii=False))
 
 def load_film(p="film.json", only=None):
     """only = top-level keys that must be free of <<placeholders>> (None = the whole file)."""
