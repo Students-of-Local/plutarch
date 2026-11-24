@@ -125,9 +125,9 @@ class FilmPy(Project):
         self.film_py("drop", "clip", "a"); self.film_py("drop", "source", "interview")
         self.assertNotIn("interview", self.data()["sources"])
 
-    def test_skill_md_step_5_placeholders_are_refused(self):
-        """The <...> placeholders in SKILL.md step 5, copied verbatim, change nothing."""
-        skill = open(os.path.join(os.path.dirname(FILM), "..", "SKILL.md")).read()
+    def test_step_5_placeholders_are_refused(self):
+        """The <...> placeholders in step 5 of references/steps.md, copied verbatim, change nothing."""
+        skill = open(os.path.join(os.path.dirname(FILM), "..", "references", "steps.md")).read()
         step5 = skill[skill.index("### 5. Write the scenes"):]
         lines = [l for l in step5[:step5.index("### 6")].splitlines() if l.startswith("python3 scripts/film.py") and "<" in l]
         self.assertGreaterEqual(len(lines), 4)
