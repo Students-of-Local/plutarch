@@ -12,7 +12,11 @@ ap = argparse.ArgumentParser(); ap.add_argument("--install", action="store_true"
 KIT = os.path.dirname(os.path.realpath(__file__))
 
 def init(folder):
-    folder = os.path.abspath(os.path.expanduser(folder)); os.makedirs(folder, exist_ok=True)
+    folder = os.path.abspath(os.path.expanduser(folder)); skill = os.path.dirname(KIT)
+    if os.path.realpath(folder + os.sep).startswith(os.path.realpath(skill) + os.sep):
+        print(f"ERROR: {folder} is inside the skill folder {skill}.\nFIX: make the film in the folder the user asked "
+              "for: leave the skill folder (or start a fresh shell) and run this command from there."); sys.exit(1)
+    os.makedirs(folder, exist_ok=True)
     for d in ("src", "tx", "clips", "narr", "music", "sfx", "out"): os.makedirs(os.path.join(folder, d), exist_ok=True)
     link = os.path.join(folder, "scripts")
     if os.path.islink(link): os.unlink(link)

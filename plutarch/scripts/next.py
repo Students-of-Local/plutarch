@@ -95,9 +95,16 @@ if missing:
         why="missing Python packages: " + ", ".join(missing))
 
 # ---- 1. inside a project? ----
+SKILL = os.path.dirname(KIT)
+if (os.path.realpath(os.getcwd()) + os.sep).startswith(os.path.realpath(SKILL) + os.sep):
+    say(1, "leave the skill folder",
+        [f"You are in {os.getcwd()}, inside the skill. Never make or edit a film here.",
+         "Go back to the folder the user asked you to work in (where your shell starts) and run:",
+         f"python3 {QKIT}/next.py"], then=None,
+        why="the skill folder holds the kit. The film goes in the user's folder, e.g. ./films/lincoln there.")
 if not (os.path.exists("film.json") and os.path.isdir("scripts")):
     make = [f"python3 {QKIT}/setup.py --init ./films/SHORTNAME      # SHORTNAME = the person's last name, lowercase, e.g. lincoln",
-            "cd ./films/SHORTNAME", "python3 scripts/next.py"]
+            "cd ./films/SHORTNAME && python3 scripts/next.py"]
     found = sorted(glob.glob("films/*/film.json") + glob.glob("*/film.json"))
     if found:
         rows = []
