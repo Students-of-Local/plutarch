@@ -3,7 +3,7 @@ name: plutarch
 description: Make a short vertical documentary about a real person for X (Twitter) built on real audio clips of their own voice, with a narrator, music, word-timed captions and motion graphics. Use when asked for a documentary, profile, tribute or "clip doc" video about a person. Works with local models only (no paid API needed).
 ---
 
-# Plutarch — clip documentaries
+# Plutarch: clip documentaries
 
 ## Goal
 
@@ -21,6 +21,8 @@ recordings**. A narrator gives the facts. Music, captions and graphics are made 
 
 - **Not sure what is next?** Run `python3 scripts/next.py` in the project (before a project exists:
   `python3 <skill>/scripts/next.py`). It reads the folder and prints the one next step with the exact command.
+- **Change `film.json` and `story.md` with `python3 scripts/film.py`** (`set`, `fact`, `source`, `clip`, `scene add`,
+  `drop`; run it with no arguments for examples). It checks each value, so you never break the JSON by hand.
 - **You never type a timestamp into the film.** You write scenes in order; `plan.py` computes every time.
   The only numbers you type are rough `in`/`out` seconds copied from `clip.py find`.
 - **Do not edit the scripts. Do not edit audio or video by hand.** If a script prints `ERROR` or `FIX`, do what
@@ -64,8 +66,8 @@ python3 scripts/find_audio.py podcast "<show name>"
 python3 scripts/find_audio.py episodes "<feed url>" --grep "<guest name>"
 python3 scripts/find_audio.py get "<audio or video url>" --name interview
 ```
-Expect `OK src/interview.mp3 ...` and an `Add to film.json:` line. Put each source into `film.json` → `sources`
-(file, credit, url), replacing the template entries.
+Expect `OK src/interview.mp3 ...` and a `film.py source` command. Write the show or event name and year in place
+of `SHOW (YEAR)` and run it; the first source replaces the template entries.
 
 ### 3. Transcribe
 

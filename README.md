@@ -46,7 +46,7 @@ and drawing.
 plutarch/              the skill: install this folder
   SKILL.md             the steps, written for literal-minded models
   references/          craft · finding audio · voices, music and SFX · film.json fields
-  scripts/             next (what to do now) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
+  scripts/             next (what to do now) · film (edit film.json) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
   templates/           film.json (placeholders only) · story.md
   fonts/               Antonio, Cormorant Garamond, JetBrains Mono (SIL Open Font License)
 distill/               for testing the skill on a student model with skill-distill (sybil-solutions)

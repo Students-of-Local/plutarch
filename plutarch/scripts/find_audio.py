@@ -11,7 +11,7 @@
   python3 scripts/find_audio.py get <url> --name speech --start 600 --end 780   # only that part (seconds)
 
 `get` works for podcast mp3 links, YouTube, X/Twitter posts, archive.org and most video pages (it uses yt-dlp)."""
-import sys, os, argparse, json, re, subprocess, urllib.request, urllib.parse
+import sys, os, argparse, json, re, subprocess, urllib.request, urllib.parse, shlex
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 
@@ -61,7 +61,6 @@ def cmd_episodes(a):
     print(f"\n{n} episodes. Next: python3 scripts/find_audio.py get \"<audio url>\" --name <short-name>")
 
 def ytdlp(args):
-    import shlex
     extra = shlex.split(os.environ.get("YTDLP_ARGS", ""))          # e.g. YTDLP_ARGS="--cookies-from-browser firefox"
     r = subprocess.run([sys.executable, "-m", "yt_dlp", "--no-warnings"] + extra + args, capture_output=True, text=True)
     if r.returncode != 0:
@@ -111,9 +110,10 @@ def cmd_get(a):
         path = os.path.relpath(path)
     if a.start is not None and not a.url.lower().startswith("http"): pass
     d = duration(path)
-    print(f"OK {path}  ({d/60:.1f} min)\nAdd to film.json:  \"sources\": {{ \"{name}\": {{\"file\": \"{path}\", \"credit\": \"<<Show or event (year)>>\", \"url\": \"{a.url}\"}} }}"
+    cmd = f"python3 scripts/film.py source {name} {shlex.quote(path)} \"SHOW (YEAR)\" {shlex.quote(a.url)}"
+    print(f"OK {path}  ({d/60:.1f} min)\nRecord it (write the show or event name and its year in place of SHOW (YEAR)):\n  {cmd}"
           + (f"\nNOTE: you downloaded only {a.start}-{a.end} s, so times in this file start at 0, not at {a.start}." if a.start is not None else "")
-          + f"\nReplace the <<...>> credit with the show or event name and year. Next: python3 scripts/next.py")
+          + "\nNext: python3 scripts/next.py")
 
 ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
 p = sub.add_parser("web"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_web)

@@ -142,14 +142,14 @@ sentence = re.search(r"## The film in one sentence\s*\n(.*)", story)
 sentence_ok = bool(sentence) and "____" not in sentence.group(1) and len(sentence.group(1).strip()) > 20
 if who == "FULL NAME":
     say(2, "write the subject's name into film.json",
-        ['Open film.json. Set "subject" to the person\'s full name, e.g. "subject": "Abraham Lincoln". Save.'])
+        ['python3 scripts/film.py set subject "FULL NAME"      # the person\'s full name, e.g. "Abraham Lincoln"'])
 if len(facts) < 5 or not sentence_ok:
     search_ok = importlib.util.find_spec("ddgs") or os.environ.get("SEARXNG_URL") or os.environ.get("BRAVE_API_KEY")
     do = ([] if search_ok else ["find_audio.py web needs a search engine. Run: python3 -m pip install ddgs   (or use your own web search tool for the next two lines)"]) + [f'python3 scripts/find_audio.py web "{who} biography"',
           f'python3 scripts/find_audio.py web "{who} career timeline"',
-          "Open story.md and fill it in. Replace the ____ under 'The film in one sentence' with one sentence.",
-          "Add at least 5 fact rows to the Facts table. Each row has the fact and TWO different source URLs:",
-          "  | 1 | Born March 3, 1960 in Ohio | https://first-source... | https://second-source... |",
+          'python3 scripts/film.py sentence "He rose from ___, it cost him ___, and then ___."      # the whole film in one sentence',
+          'python3 scripts/film.py fact "Born March 3, 1960 in Ohio" https://first-source https://second-source',
+          "  -> one film.py fact per fact, 5 or more. Each fact needs TWO different URLs from the search results.",
           "Use only facts you found in the search results. Copy the URLs exactly.",
           "If a search prints ERROR: web search failed, run it again or change the words."]
     say(2, "story first: one sentence and 5 facts with two sources each", do,
@@ -166,23 +166,24 @@ if not srcfiles:
          f'python3 scripts/find_audio.py episodes "FEED_URL" --grep "{who.split()[-1]}"',
          "  -> copy the audio URL of the episode with them in it",
          'python3 scripts/find_audio.py get "AUDIO_URL" --name interview',
-         "It prints an 'Add to film.json:' line. Copy that entry into film.json \"sources\"."],
+         "It prints a film.py source command. Write the show name and year into it, then run it."],
         why="src/ has no audio yet. Read references/finding-audio.md if podcasts find nothing. YouTube is often blocked; prefer podcasts.")
 bad_src = [k for k, v in sources.items() if holders(v) or not os.path.exists(v.get("file", ""))]
 if bad_src or not sources:
     files = ", ".join(srcfiles)
     say(3, "list your recordings in film.json \"sources\"",
-        [f"Files in src/: {files}",
-         "Open film.json. In \"sources\", keep one entry per file you have and DELETE template entries you do not use.",
-         'Each entry: "interview": {"file": "src/interview.mp3", "credit": "Show Name (2019)", "url": "https://where-you-got-it"}',
-         "The 'Add to film.json:' line that find_audio.py get printed has the right values."],
+        [f"python3 scripts/film.py source {shlex.quote(os.path.splitext(os.path.basename(f))[0])} {shlex.quote(f)} \"SHOW (YEAR)\" URL"
+          for f in srcfiles if f not in {v.get("file") for v in sources.values() if isinstance(v, dict) and not holders(v)}] +
+         ["  -> write the show or event name and its year, and the URL you downloaded it from (find_audio.py get printed it).",
+          "The first film.py source removes the template entries."] +
+         [f"python3 scripts/film.py drop source {k}      # its file is missing" for k in bad_src if not holders(sources[k])],
         why=("these sources are template text or point to a missing file: " + ", ".join(bad_src)) if bad_src else "film.json \"sources\" is empty.")
 if len(sources) < 2:
     say(3, "get a second recording (a different interview, speech or event)",
         [f'python3 scripts/find_audio.py podcast "{who}"',
          f'python3 scripts/find_audio.py archive "{who}"',
          'python3 scripts/find_audio.py get "AUDIO_URL" --name SECOND_NAME',
-         "Add it to film.json \"sources\" like the first one."],
+         "Then run the film.py source command it prints, with the show name and year filled in."],
         why="the film needs real voice from at least 2 sources (check.py and the acceptance checks require it).")
 
 # ---- 4. transcripts ----
@@ -203,16 +204,18 @@ if holders(clips) or len(real) < 6:
         [f'python3 scripts/clip.py find {tx[0] if tx else "tx/interview.json"} "a few words or an idea"',
          "  -> each result shows   \"in\": 560.9, \"out\": 562.3   and the sentence that was said",
          "Search for ideas from story.md: the start, the risk, the cost, the turn, the comeback.",
-         "Add one entry per quote to film.json \"clips\" and DELETE every template entry that still has << >>:",
-         '  "start": {"src": "interview", "in": 560.9, "out": 562.3, "text": "the exact words said", "year": 2010, "about": "what he was talking about"}',
-         '"src" is a key from "sources". Copy in/out from the result. "text" = the sentence shown after >>>.',
+         f'python3 scripts/film.py clip start {(next((k for k, v in sources.items() if not holders(v)), "interview"))} 560.9 562.3 "the exact words said" 2010 "what he was talking about"',
+         "  -> one film.py clip per quote: a new KEY (start, risk, cost, turn, payoff...), a source key, IN and OUT from the",
+         "     result, the exact words shown after >>>, the year it was said, and what it was about.",
+         "     Add --live for a crowd or phone recording. The first film.py clip removes the template clips.",
          "Use quotes from at least 2 different sources."],
         why=f"film.json has {len(real)} finished clips (need 6 or more)" + (" and template entries still in \"clips\"" if holders(clips) else ""))
 srcs_used = {c["src"] for c in real.values()}
 if len(srcs_used) < 2:
     say(5, "add a quote from your second recording",
         [f"python3 scripts/clip.py find tx/SECOND.json \"words\"      # transcripts: {', '.join(tx)}",
-         "Add it to film.json \"clips\" with \"src\" set to the second source's key."],
+         "python3 scripts/film.py clip KEY SECOND_SOURCE IN OUT \"exact words\" YEAR \"what it was about\"      # SECOND_SOURCE: " +
+         ", ".join(k for k in sources if k not in srcs_used)],
         why="all clips come from one source; the film needs real voice from 2 or more.")
 def cut_is_stale(k, c):
     d = load(f"clips/{k}.json")
@@ -232,9 +235,9 @@ if unver:
     say(6, "fix the clips that are NOT VERIFIED",
         ["grep -A2 -E '^\\s*\\[(" + "|".join(unver) + ")\\]' out/clips.log | head -30",
          "Do what each note says. The usual fixes, in order:",
-         "  1. Change \"text\" to the exact words in the 'heard' column.",
-         "  2. Crowd or phone recording: add \"live\": true. Music under the voice: add \"isolate\": true.",
-         "  3. Still unverified after two tries: delete that clip from film.json \"clips\" and from scenes."],
+         "  1. Run the same film.py clip command again (same KEY) with the exact words from the 'heard' column.",
+         "  2. Crowd or phone recording: add --live to it. Music under the voice: add --isolate.",
+         "  3. Still unverified after two tries: python3 scripts/film.py drop clip KEY"],
         why="unverified: " + ", ".join(unver))
 
 # ---- 7. scenes ----
@@ -242,19 +245,27 @@ left = holders({k: film[k] for k in film if k not in ("_readme", "sources", "cli
 used = {it.get("clip") for s in film.get("scenes", []) for it in s.get("items", []) if isinstance(it, dict)}
 dangling = sorted(x for x in used if x and x not in clips)
 unders = sorted({s["under"].get("src") for s in film.get("scenes", []) if isinstance(s.get("under"), dict)} - set(sources) - {None})
-if left or dangling or unders:
-    do = ["Open film.json. Replace every <<...>> below with real text. Rules:",
-          "  title: 2-3 words, CAPITALS, ends with a period. accent: one color like #C8102E.",
-          "  narrator \"say\" lines: one fact from story.md, at most 16 words, no praise words.",
-          "  \"lines\" on screen: at most 7 words each. \"heading\": a date or 2-4 words.",
-          "  Each {\"clip\": \"...\"} item must name a key in \"clips\". Put each quote in the scene for the year it is about.",
-          "  The last clip item in the film must be the subject speaking (the payoff).",
-          "  Delete a whole scene (or the chart) if you have no real facts for it. Never invent numbers.",
-          "Still to replace:"] + ["  " + x for x in left[:12]] + (["  ... and %d more" % (len(left) - 12)] if len(left) > 12 else [])
-    if unders: do.append("Scenes play sound \"under\" from sources that do not exist: " + ", ".join(unders) +
-                         " -> set \"src\" to one of your sources, or delete the \"under\" key. No crowd recording? Make scene 1 a card whose first item is a clip.")
-    if dangling: do.append("Scenes use clips that do not exist in \"clips\": " + ", ".join(dangling) + " -> change them to your clip keys.")
-    say(7, "write the scenes", do, why=f"{len(left)} placeholder(s) left outside clips/sources")
+scenes = film.get("scenes", [])
+if left or dangling or unders or not scenes or scenes[-1].get("type") != "end":
+    order = sorted(real, key=lambda k: (real[k].get("year", 0), k))
+    do = []
+    if "<<" in str(film.get("title", "<<")): do.append('python3 scripts/film.py set title "TWO WORDS."        # 2-3 words, capitals, ends with a period')
+    if "<<" in str(film.get("accent", "<<")): do.append('python3 scripts/film.py set accent "#C8102E"          # one color that fits the subject')
+    if holders(scenes) or dangling or unders: do.append("python3 scripts/film.py scenes clear                 # removes the template scenes")
+    if not scenes or holders(scenes) or dangling or unders:
+        do.append("python3 scripts/film.py scene add title")
+        for n, k in enumerate(order):
+            c = real[k]; say_ = ' --say "One fact from story.md, max 16 words."' if n % 2 == 0 else ""
+            do.append(f'python3 scripts/film.py scene add card --heading "{c.get("year") or "DATE"}" --line "up to 7 words"{say_} --clip {k}')
+        do.append('python3 scripts/film.py scene add end --accent-text "2-3 WORDS."      # the answer to the title')
+        do += ["  -> change each --heading, --line and --say to real facts from story.md. Never invent numbers.",
+               "  -> a scene can play a clip with no --say: the subject must talk more than the narrator.",
+               "  -> the last scene before the end card must end with a --clip (the payoff)."]
+    elif scenes[-1].get("type") != "end":
+        do.append('python3 scripts/film.py scene add end --accent-text "2-3 WORDS."      # the film must end on the end card')
+    if left and not do: do = ["These still have template text:"] + ["  " + x for x in left[:12]] + ["python3 scripts/film.py scenes clear   # then add scenes with film.py scene add"]
+    do.append("python3 scripts/film.py scenes      # check the order")
+    say(7, "write the scenes", do, why=f"{len(left)} placeholder(s) left outside clips/sources" if left else "the film has no scenes or no end card yet")
 
 # ---- 8. narrator ----
 says = [it["say"] for s in film.get("scenes", []) for it in s.get("items", []) if isinstance(it, dict) and it.get("say")]
@@ -271,7 +282,8 @@ if not plan or mtime("out/plan.json") < max(mtime(p) for p in deps):
 limit = film.get("max_seconds", 140)
 if plan.get("dur", 0) > limit:
     say(9, f"the film is too long ({plan['dur']:.0f} s, limit {limit} s)",
-        ["Remove one quote item or one narrator line from a scene in film.json (do not change max_seconds).",
+        ["python3 scripts/film.py scenes                # find a scene you can lose",
+         "python3 scripts/film.py drop scene N          # do not change max_seconds",
          "python3 scripts/plan.py"], why="X plays at most 140 s for normal accounts.")
 
 sp = sorted([q for q in plan.get("audio", []) if q.get("role") in ("narr", "voice", "live")], key=lambda q: q["at"])
@@ -280,13 +292,16 @@ nq = len({q.get("id") for q in sp if q["role"] != "narr"}); wantq = max(3, round
 if rs < 0.5 * (rs + ns):
     say(9, "let the subject talk more than the narrator",
         [f"Now: real voice {rs:.0f} s, narrator {ns:.0f} s. Real voice must be at least half.",
-         "In film.json: add a quote item to a scene, make a clip longer, or delete a narrator \"say\" line.",
+         "Add a scene that only plays a clip:  python3 scripts/film.py scene add card --clip KEY",
+         "or drop a scene that is mostly narrator:  python3 scripts/film.py scenes  then  python3 scripts/film.py drop scene N",
          "python3 scripts/next.py"], why="check.py fails a film where the narrator talks more than the subject.", then=None)
 if nq < wantq:
-    say(9, "add more quotes to the scenes", [f"The scenes use {nq} quotes; this length needs {wantq}. Add {{\"clip\": \"KEY\"}} items for clips you made but did not use, or make new clips (step 5)."],
+    say(9, "add more quotes to the scenes", [f"The scenes use {nq} quotes; this length needs {wantq}.",
+         "python3 scripts/film.py scene add card --heading \"YEAR\" --clip KEY      # for clips you made but did not use: " +
+         ", ".join(k for k in real if k not in used), "or make new clips (step 5)."],
         why="check.py counts the quotes the film plays.")
 if sp and sp[-1]["role"] == "narr":
-    say(9, "give the subject the last word", ["In the last scene that talks, put a {\"clip\": \"KEY\"} item after the last \"say\" item."],
+    say(9, "give the subject the last word", ["python3 scripts/film.py scene add card --clip KEY      # goes just before the end card; use your strongest quote"],
         why="the film must end on the subject's own voice.")
 
 # ---- 10. music + mix ----
