@@ -1,4 +1,4 @@
-# Story sheet — fill this in BEFORE touching film.json
+# Story sheet: film.py fills it; python3 scripts/next.py prints each command
 
 Subject: ______________________    Why now (the news hook): ______________________
 Where it will be posted: X / vertical 1080x1920.   Length limit: ____ s (140 unless the user has X Premium)
@@ -25,13 +25,13 @@ Title: ____________.        End card second line: ____________.
 ## Beats (one row per scene, in order; 8-11 scenes)
 | # | Beat | Scene type | On screen (heading / lines / words) | Narrator line (max 16 words, a fact) | Quote clip |
 |---|---|---|---|---|---|
-| 1 | Cold open: the most alive moment | arena (reveal hits) | — | — | crowd sound under |
-| 2 | Title | title | TITLE. | — | — |
+| 1 | Cold open: the most alive moment | arena (reveal hits) | - | - | crowd sound under |
+| 2 | Title | title | TITLE. | - | - |
 | 3 | Origin | card (glow) | date + 2 lines | | |
 | 4 | The bet | card | | | |
 | 5 | The rise | chart | real numbers | | |
-| 6 | The cost | stack | 3-6 big words he/she says | — | |
+| 6 | The cost | stack | 3-6 big words he/she says | - | |
 | 7 | The question | card | | | |
-| 8 | The fall / the setback | card (pulse) | | | — |
+| 8 | The fall / the setback | card (pulse) | | | - |
 | 9 | The return / resolution | arena (reveal rise) | | | the payoff line |
-| 10 | End card | end | TITLE. + echo | — | — |
+| 10 | End card | end | TITLE. + echo | - | - |

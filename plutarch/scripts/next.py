@@ -155,7 +155,7 @@ sentence = re.search(r"## The film in one sentence\s*\n(.*)", story)
 sentence_ok = bool(sentence) and "____" not in sentence.group(1) and len(sentence.group(1).strip()) > 20
 if who == "FULL NAME":
     say(2, "write the subject's name into film.json",
-        ['python3 scripts/film.py set subject "FULL NAME"      # the person\'s full name, e.g. "Abraham Lincoln"'])
+        ['python3 scripts/film.py set subject "FULL NAME"      # the person the user asked for (their name is in the request), e.g. "Abraham Lincoln"'])
 if len(facts) < 5 or not sentence_ok:
     search_ok = importlib.util.find_spec("ddgs") or os.environ.get("SEARXNG_URL") or os.environ.get("BRAVE_API_KEY")
     do = ([] if search_ok else ["find_audio.py web needs a search engine. Run: python3 -m pip install ddgs   (or use your own web search tool for the next two lines)"]) + [f'python3 scripts/find_audio.py web "{who} biography"',
