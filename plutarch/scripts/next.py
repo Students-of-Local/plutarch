@@ -189,6 +189,12 @@ for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "c
                 ["-> next.py then asks for another quote if you have fewer than 6.",
                  "To keep one instead, run the film.py clip line out/clips.log prints for it, with words that are really said there."],
                 why=f"clip {lost[0]}: {why[:160]} The same words and times fail again.")
+    if err and log == "tx.log":
+        lost = re.findall(r"could not read audio from (.+?): ", open("out/tx.log", encoding="utf8", errors="replace").read())
+        mute = [k for k, v in (film.get("sources") or {}).items() if isinstance(v, dict) and v.get("file") in lost]
+        if lost and not mute: continue          # it was dropped since
+        if mute: say(3, "replace the recording that has no sound", [f"python3 scripts/film.py drop source {k}" for k in mute] + ["-> next.py then asks for another recording if you need one. find_audio.py get downloads the sound."],
+                     why=f"ffmpeg found no sound it can read in {film['sources'][mute[0]]['file']}. Transcribing it again fails again.")
     if err and (log != "tx.log" or not all(os.path.exists("tx/" + os.path.splitext(os.path.basename(v.get("file", "")))[0] + ".json")
                                              for v in (film.get("sources") or {}).values() if isinstance(v, dict))):
         hint = {"tx.log": "If it mentions CUDA, cublas or cudnn: run it again with  PLUTARCH_DEVICE=cpu  in front of the command.",
