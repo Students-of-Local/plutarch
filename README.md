@@ -51,7 +51,7 @@ and drawing.
 plutarch/              the skill: install this folder
   SKILL.md             a short loop: run next.py, do what it prints, repeat until DONE
   references/          steps · decisions · craft · finding audio · voices, music and SFX · film.json fields
-  scripts/             next (what to do now) · film (edit film.json) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
+  scripts/             next (what to do now) · film (edit film.json) · facts (check story.md) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
   templates/           film.json (placeholders only) · story.md
   fonts/               Antonio, Cormorant Garamond, JetBrains Mono (SIL Open Font License)
 distill/               for testing the skill on a student model with skill-distill (sybil-solutions)
@@ -108,6 +108,9 @@ python3 scripts/render.py --sheet && python3 scripts/render.py && python3 script
 - The subject's voice is never synthesized or cloned. The narrator is a stock voice.
 - No photos or footage of the person: original motion graphics only.
 - Every audio source is credited on screen.
+- A fact goes in only if both of its pages give the person's name and say its numbers, names and main words close
+  together. This does not prove the claim: read the pages. If you read the sources yourself (a book, a paywall, a site
+  that blocks scripts), set `PLUTARCH_FACTS=off` to skip the check.
 
 ## Status
 

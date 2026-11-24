@@ -22,6 +22,7 @@ Expect `PROJECT READY: ...`. From now on you are inside the project and every co
 Read `SKILL_DIR/references/craft.md` sections 1-4. Search with your web search tool, or `python3 scripts/find_audio.py web "<query>"`. Then write the story into
 `story.md` with `python3 scripts/film.py sentence "<the whole film in one sentence>"` and, once per fact,
 `python3 scripts/film.py fact "<fact with its date>" <url 1> <url 2>`.
+film.py opens both pages and refuses a fact that is not on them. Wikipedia and news stories open; some sites block scripts.
 Done when: the one sentence is written and you have at least 5 facts with two sources each.
 
 ### 2. Find the subject's real voice

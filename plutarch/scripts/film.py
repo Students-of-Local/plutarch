@@ -24,6 +24,7 @@
 Scene items play in the order you give --say, --clip and --gap. Run python3 scripts/next.py after changes."""
 import json, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import facts
 from common import write_file
 
 FILM, STORY = "film.json", "story.md"
@@ -79,7 +80,7 @@ def cmd_sentence(a):
     write_file(STORY, s[:m.start(2)] + a[0].strip() + s[m.end(2):]); print("OK one sentence written to story.md")
 
 def fact_rows(s):
-    return [l for l in s.splitlines() if re.match(r"\|\s*\d+\s*\|", l) and "http" in l and "##" not in l]
+    return [r[0] for r in facts.rows(s)]      # line numbers
 
 def cmd_fact(a):
     if len(a) != 3: die('use: film.py fact "the fact with its date" URL1 URL2')
@@ -87,6 +88,11 @@ def cmd_fact(a):
     for u in (u1, u2):
         if not u.startswith(("http://", "https://")): die(f"{u!r} is not a URL.", "copy the full https:// address from the search result.")
     if u1 == u2: die("the two sources are the same URL.", "each fact needs two different sources.")
+    who = str(load().get("subject") or "")
+    if not facts.OFF:
+        if not who or is_tpl(who): die("film.json has no subject yet.", 'python3 scripts/film.py set subject "the person\'s name", then add the fact.')
+        bad = facts.problem(text, [u1, u2], who)
+        if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works. If it fails twice, use another page." if bad[1] else "open the page and use what it says, or use another page. Never guess a date or number.")
     s = story(); lines = s.splitlines()
     try: head = next(i for i, l in enumerate(lines) if l.startswith("| # | Fact"))
     except StopIteration: die("story.md has no Facts table.")
@@ -96,7 +102,7 @@ def cmd_fact(a):
         i += 1
     n = len([l for l in lines[head + 2:i] if l.startswith("|")]) + 1
     lines.insert(i, f"| {n} | {text.strip()} | {u1} | {u2} |")
-    write_file(STORY, "\n".join(lines) + "\n"); print(f"OK fact {n} added to story.md")
+    write_file(STORY, "\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md")
 
 def cmd_source(a):
     if len(a) != 4: die('use: film.py source KEY FILE "Credit (year)" URL')
@@ -235,7 +241,7 @@ def cmd_drop(a):
     if what == "fact":
         s = story(); rows = fact_rows(s); n = int(num(k, "N"))
         if not 1 <= n <= len(rows): die(f"there are {len(rows)} facts.")
-        write_file(STORY, s.replace(rows[n - 1] + "\n", "", 1)); print(f"OK fact {n} removed"); return
+        ls = s.splitlines(); del ls[rows[n - 1]]; write_file(STORY, "\n".join(ls) + "\n"); print(f"OK fact {n} removed"); return
     f = load()
     if what == "scene":
         sc = f.get("scenes", []); n = int(num(k, "N"))
