@@ -16,7 +16,9 @@ PAGES = {
     "/far": NAME + f"<p>He was elected president on November 6. {FAR} A railway opened in 1860.</p>",
     "/surname": "<p>Robert Lincoln was not elected president on November 6, 1860.</p>",
     "/noname": "<p>Stephen Douglas was not elected president on November 6, 1860.</p>",
-    "/born": NAME + "<p>He was born 1947 in Australia.</p>",
+    "/born": NAME + "<p>He was born 1947 in Australia.</p>", "/born2": NAME + "<p>He was born 1947 in Australia.</p>",
+    "/note": NAME + '<p>Elected president on November 6, 1860.<sup class="reference"><a>[9]</a></sup> He won three states.</p>',
+    "/note2": NAME + "<p>Elected president on Nov. 6, 1860. He won 3 states.</p>",
 }
 FACT = "Elected president on November 6, 1860"
 
@@ -65,7 +67,10 @@ class Facts(Project):
                           ("Won 3 Nobel prizes", "it never says nobel"), ("Elected president on November 60, 1860", "60")):
             code, out = self.fact("/a", "/b", text)
             self.assertEqual(code, 1, text + out); self.assertIn(why, out)
-        self.assertEqual(self.fact("/born", "/born", "Born 1947 in Austria")[0], 1)               # Austria is not Australia
+        self.assertIn("it never says austria", self.fact("/born", "/born2", "Born 1947 in Austria")[1])
+        for text in ("Elected president on October 6, 1860", "Elected president on Oct 6, 1860", "Elected president on November 9, 1860",
+                     "Won two states in 1860"):                                                   # 9 is only a footnote; three states, not two
+            self.assertEqual(self.fact("/note", "/note2", text)[0], 1, text)
         self.assertIn("same URL", self.fact("/a", "/a")[1])
         self.assertEqual(self.rows(), 0)
 
@@ -104,6 +109,31 @@ class Facts(Project):
         for f in fixes: self.assertEqual(self.kit("film.py", *shlex.split(f, comments=True)[3:])[0], 0)
         left = open(os.path.join(self.proj, "story.md")).read()
         self.assertIn(FACT, left); self.assertNotIn("1859", left)
+
+    def test_rows_anywhere_are_checked(self):
+        for bad in (["", "| 6 | Elected president in 1859 | U/a | U/b |"], ["  | 6 | Elected president in 1859 | U/a | U/b |"],
+                    ["6 | Elected president in 1859 | U/a | U/b", self.GOOD[0]], ["| 6 | Elected president in 1859 | Wikipedia | a book |"],
+                    ["", "## Beats", "| # | Beat |", "|---|---|", "| 1 | Title |", "", "| 6 | Elected president in 1859 | U/a | U/b |"],
+                    ["", "| Fact | One | Two |", "|---|---|---|", "| Elected president in 1859 | U/a | U/b |"],
+                    ["| 6 | Elected president in 1859 | U/a | U/b |", "|---|---|"], ["| 6 | Elected president in 1859 | Wikipedia | a book |", "---"],
+                    ["| 6 | Date | Elected president in 1859 | U/a | U/b |"], ["| 6 | Elected president in 1859 | U/a,U/b |"]):
+            self.story(*self.GOOD, self.GOOD[0], *bad)
+            code, out = self.kit("facts.py"); self.assertEqual(code, 1, bad)
+            fixes = [l for l in out.splitlines() if l.startswith("FIX: ")]; self.assertEqual(len(fixes), 1, out)
+            self.kit("film.py", *shlex.split(fixes[0], comments=True)[3:]); self.assertEqual(self.kit("facts.py")[0], 0, bad)
+            left = open(os.path.join(self.proj, "story.md")).read()
+            self.assertNotIn("1859", left); self.assertGreaterEqual(left.count(FACT), 5)
+
+    def test_true_rows_pass_in_any_form(self):
+        self.story(f"| 1 | {FACT} | [a](U/a) | [b](U/b) |", f"| 2 | {FACT} | <U/a> | <U/b> |", f"| 3. | {FACT} | U/a, U/b |", tail="")
+        code, out = self.kit("facts.py"); self.assertEqual(code, 0, out); self.assertEqual(out.count("OK: fact"), 3)
+
+    def test_added_facts_need_no_second_check(self):
+        for day in ("November 6, 1860", "Nov 6, 1860", "November 6 in 1860", "6 November 1860", "November 1860"):
+            self.assertEqual(self.fact("/a", "/b", f"Elected president on {day}")[0], 0, day)
+        self.assertEqual(len(__import__("re").findall("(?m)^\\| [1-5] \\| Elected", open(os.path.join(self.proj, "story.md")).read())), 5)
+        self.kit("film.py", "sentence", "He rose from a cabin to the presidency, it cost him, and then he won.")
+        self.assertIn("STEP 3 of 12", self.kit("next.py")[1])
 
     def test_a_dead_network_drops_nothing(self):
         self.story(*[g.replace("U", "http://127.0.0.1:9") for g in self.GOOD])

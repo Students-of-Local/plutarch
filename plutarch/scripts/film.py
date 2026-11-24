@@ -91,7 +91,7 @@ def cmd_fact(a):
     if not facts.OFF:
         if not who or is_tpl(who): die("film.json has no subject yet.", 'python3 scripts/film.py set subject "the person\'s name", then add the fact.')
         bad = facts.problem(text, [u1, u2], who)
-        if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works." if bad[1] else "open the page and use what it says, or use another page. Never guess a date or number.")
+        if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works. If it fails twice, use another page." if bad[1] else "open the page and use what it says, or use another page. Never guess a date or number.")
     s = story(); lines = s.splitlines()
     try: head = next(i for i, l in enumerate(lines) if l.startswith("| # | Fact"))
     except StopIteration: die("story.md has no Facts table.")
