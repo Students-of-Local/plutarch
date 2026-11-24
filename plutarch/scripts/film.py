@@ -23,6 +23,8 @@
 
 Scene items play in the order you give --say, --clip and --gap. Run python3 scripts/next.py after changes."""
 import json, os, re, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import facts
 
 FILM, STORY = "film.json", "story.md"
 USAGE = __doc__.split("\n\n", 1)[1]
@@ -85,6 +87,9 @@ def cmd_fact(a):
     for u in (u1, u2):
         if not u.startswith(("http://", "https://")): die(f"{u!r} is not a URL.", "copy the full https:// address from the search result.")
     if u1 == u2: die("the two sources are the same URL.", "each fact needs two different sources.")
+    if not facts.OFF:
+        why = facts.problem(text, [u1, u2], load().get("subject", ""))
+        if why: die(f"this fact is not on its pages. {why}.", "open the page and use what it says, or use another page. Never guess a date or number.")
     s = story(); lines = s.splitlines()
     try: head = next(i for i, l in enumerate(lines) if l.startswith("| # | Fact"))
     except StopIteration: die("story.md has no Facts table.")
@@ -94,7 +99,7 @@ def cmd_fact(a):
         i += 1
     n = len([l for l in lines[head + 2:i] if l.startswith("|")]) + 1
     lines.insert(i, f"| {n} | {text.strip()} | {u1} | {u2} |")
-    open(STORY, "w", encoding="utf8").write("\n".join(lines) + "\n"); print(f"OK fact {n} added to story.md")
+    open(STORY, "w", encoding="utf8").write("\n".join(lines) + "\n"); facts.passed(text, [u1, u2]); print(f"OK fact {n} added to story.md")
 
 def cmd_source(a):
     if len(a) != 4: die('use: film.py source KEY FILE "Credit (year)" URL')

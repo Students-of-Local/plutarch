@@ -7,7 +7,7 @@ import os, re, unittest
 KIT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "plutarch", "scripts")
 # script -> scripts its Next: hints may name. next.py is always allowed.
 ALLOWED = {
-    "transcribe.py": set(), "plan.py": set(), "film.py": set(), "clip.py": {"film.py"}, "setup.py": {"setup.py"},
+    "transcribe.py": set(), "plan.py": set(), "film.py": set(), "facts.py": set(), "clip.py": {"film.py"}, "setup.py": {"setup.py"},
     "find_audio.py": {"find_audio.py"}, "score.py": {"mix.py", "score.py"},
     "mix.py": {"render.py"}, "narrate.py": {"plan.py", "narrate.py"}, "render.py": {"check.py"},
 }

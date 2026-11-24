@@ -9,6 +9,8 @@ KIT = os.path.join(ROOT, "plutarch", "scripts")
 NEXT = os.path.join(KIT, "next.py")
 DEPS = ["numpy", "scipy", "soundfile", "pyloudnorm", "librosa", "skia", "PIL", "faster_whisper", "yt_dlp", "kokoro_onnx"]
 
+os.environ["PLUTARCH_FACTS"] = "off"      # the fixtures' fact URLs are made up; test_facts.py checks the check
+
 
 class Project(unittest.TestCase):
     """A film project made from the templates, with stub packages for the kit's dependencies."""

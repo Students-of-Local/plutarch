@@ -217,6 +217,12 @@ if len(facts) < 5 or not sentence_ok:
     say(2, "story first: one sentence and 5 facts with two sources each", do,
         why=f"story.md has {len(facts)} fact rows with two URLs (need 5)" + ("" if sentence_ok else " and no one-sentence summary yet"))
 
+import facts as fact_check
+todo_facts = fact_check.unchecked(story)
+if todo_facts:
+    say(2, "check the facts against their pages", ["python3 scripts/facts.py", "-> then run each FIX line it prints."],
+        why=f"{len(todo_facts)} fact(s) in story.md have not been checked: each must be on both of its pages.")
+
 # ---- 3. audio sources ----
 AUD = (".mp3", ".m4a", ".wav", ".flac", ".mp4", ".webm", ".mkv", ".opus", ".ogg", ".aac", ".mov", ".mpg", ".mpeg", ".avi",
        ".m4v", ".ts", ".3gp", ".flv", ".wma", ".aif", ".aiff", ".mka", ".amr", ".wmv")
