@@ -123,6 +123,31 @@ class FilmPy(Project):
         self.film_py("drop", "clip", "a"); self.film_py("drop", "source", "interview")
         self.assertNotIn("interview", self.data()["sources"])
 
+    def test_skill_md_step_5_placeholders_are_refused(self):
+        """The <...> placeholders in SKILL.md step 5, copied verbatim, change nothing."""
+        skill = open(os.path.join(os.path.dirname(FILM), "..", "SKILL.md")).read()
+        step5 = skill[skill.index("### 5. Write the scenes"):]
+        lines = [l for l in step5[:step5.index("### 6")].splitlines() if l.startswith("python3 scripts/film.py") and "<" in l]
+        self.assertGreaterEqual(len(lines), 4)
+        before = open(os.path.join(self.proj, "film.json")).read()
+        for l in lines: self.film_py(*shlex.split(l)[2:], ok=False)
+        self.assertEqual(open(os.path.join(self.proj, "film.json")).read(), before)
+
+    def test_new_title_reaches_the_title_and_end_cards(self):
+        self.film_py("set", "subject", "Abraham Lincoln"); self.film_py("set", "title", "THE LONG ROAD.")
+        self.film_py("scenes", "clear"); self.film_py("scene", "add", "title")
+        self.film_py("scene", "add", "end", "--accent-text", "HE KEPT GOING.")
+        self.film_py("set", "title", "ROAD."); self.film_py("set", "subject", "Abe Lincoln")
+        sc = self.data()["scenes"]
+        self.assertEqual((sc[0]["text"], sc[1]["text"], sc[0]["sub"][0]), ("ROAD.", "ROAD.", "ABE LINCOLN"))
+
+    def test_clip_flags_change_without_retyping(self):
+        self.ready_for_scenes({"a": (1860, "x")})
+        self.film_py("clip", "a", "--live", "--isolate")
+        self.film_py("clip", "a", "interview", "1", "3", "new words", "1860", "x")      # retyped: flags kept
+        c = self.data()["clips"]["a"]; self.assertEqual((c["live"], c["isolate"], c["text"]), (True, True, "new words"))
+        self.film_py("clip", "a", "--no-live"); self.assertFalse(self.data()["clips"]["a"]["live"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -105,8 +105,8 @@ Done when the log ends with `OK: N/N clips verified.` and the `verified` column 
 | `heard` is different from your `text` | The recording wins. Run the same `film.py clip` again with the heard words, or pick another quote. |
 | `NOT IN THE CUT: "word"` | A word of your `text` was not found. If the quote still makes sense without it, change `text` to the heard words. If not, move `in` 1 s earlier (or `out` 1 s later) and run `clip.py make <id>` again, or pick another quote. |
 | `ERROR: clip 'x': could not find all of "..."` | Read the `Heard there:` line. Either `in`/`out` are off (run `clip.py find` again and copy the numbers) or your `text` is not what was said (fix `text`). |
-| `there is music or noise under this voice` | Run that `film.py clip` again with `--isolate`, then `clip.py make <id>`. |
-| `NOT VERIFIED` (the row says `unverified`) | Do exactly what that note says. Crowd or phone recording: add `--live`. Already live: leave it off if the recording is clean, or set in and out tightly around the sentence. Still unverified after two tries: `film.py drop clip <key>`. |
+| `there is music or noise under this voice` | Run `film.py clip <key> --isolate`, then `clip.py make <id>`. |
+| `NOT VERIFIED` (the row says `unverified`) | Do exactly what that note says. Crowd or phone recording: `film.py clip <key> --live`. Already live: leave it off if the recording is clean, or set in and out tightly around the sentence. Still unverified after two tries: `film.py drop clip <key>`. |
 
 Use `--live` **only** for crowd or phone recordings. On a clean interview it makes timing worse.
 
@@ -157,8 +157,8 @@ python3 scripts/mix.py
 ```
 Expect a table where **every row ends in `ok`**, then
 `OK: out/mix.wav  131.2 s  loudness -14.4 LUFS (target -14)  peak -1.6 dB (must be below -1).`
-A row that says `COVERED`: something loud sits under that voice. Run that clip's `film.py clip` command again with
-`--isolate` (crowd or phone recording: `--live`), then `clip.py make <id>`, `plan.py`, `mix.py`.
+A row that says `COVERED`: something loud sits under that voice. Run `film.py clip <key> --isolate` (crowd or phone
+recording: `film.py clip <key> --live`), then `clip.py make <id>`, `plan.py`, `mix.py`.
 
 ### 9. Preview frames (seconds, not minutes)
 
@@ -220,7 +220,7 @@ honest sentence about anything you could not check (for example: "I cannot view 
   cloning model. Narrator = stock voice.
 - Don't type caption or scene times, and don't trust word times in a noisy clip without `--live`.
   (A caption once ran 4 seconds early because speech was hidden in crowd noise.)
-- Don't keep another creator's music under a quote: rerun its `film.py clip` with `--isolate`.
+- Don't keep another creator's music under a quote: `film.py clip <key> --isolate`.
 - Don't let the narrator praise or summarize feelings. No "legendary", "visionary", "iconic".
 - Don't add a closing line the facts don't support. (An end-card line about "investigations" had to be removed.)
 - Don't start on a black frame. Scene 1 is an `arena` with `reveal: hits`, or a card that starts with a clip.

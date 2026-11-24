@@ -236,7 +236,7 @@ if unver:
         ["grep -A2 -E '^\\s*\\[(" + "|".join(unver) + ")\\]' out/clips.log | head -30",
          "Do what each note says. The usual fixes, in order:",
          "  1. Run the same film.py clip command again (same KEY) with the exact words from the 'heard' column.",
-         "  2. Crowd or phone recording: add --live to it. Music under the voice: add --isolate.",
+         "  2. Crowd or phone recording: python3 scripts/film.py clip KEY --live   Music under the voice: ... clip KEY --isolate",
          "  3. Still unverified after two tries: python3 scripts/film.py drop clip KEY"],
         why="unverified: " + ", ".join(unver))
 
@@ -249,8 +249,8 @@ scenes = film.get("scenes", [])
 if left or dangling or unders or not scenes or scenes[-1].get("type") != "end":
     order = list(real)   # "year" is when it was said, not what it is about: the agent orders and dates the cards
     do = []
-    if "<<" in str(film.get("title", "<<")): do.append('python3 scripts/film.py set title "TWO WORDS."        # 2-3 words, capitals, ends with a period')
-    if "<<" in str(film.get("accent", "<<")): do.append('python3 scripts/film.py set accent "#C8102E"          # one color that fits the subject')
+    if holders(film.get("title", "<<")) or not film.get("title"): do.append('python3 scripts/film.py set title "TWO WORDS."        # 2-3 words, capitals, ends with a period')
+    if holders(film.get("accent", "<<")) or not film.get("accent"): do.append('python3 scripts/film.py set accent "#C8102E"          # one color that fits the subject')
     if holders(scenes) or dangling or unders: do.append("python3 scripts/film.py scenes clear                 # removes the template scenes")
     if not scenes or holders(scenes) or dangling or unders:
         do.append("python3 scripts/film.py scene add title")
@@ -317,7 +317,7 @@ if not os.path.exists(mus) or (mus == "music/synth.wav" and mtime(mus) < mtime("
     say(10, "make the music", ["python3 scripts/score.py synth"])
 if mtime("out/mix.wav") < max(mtime("out/plan.json"), mtime(mus)):
     say(10, "mix the sound", ["python3 scripts/mix.py"],
-        why="every row must end in ok. COVERED: run that clip's film.py clip command again with --isolate (crowd/phone: --live), then python3 scripts/next.py")
+        why="every row must end in ok. COVERED: python3 scripts/film.py clip KEY --isolate (crowd/phone: --live), then python3 scripts/next.py")
 
 # ---- 11. pictures ----
 if mtime("out/sheet.jpg") < mtime("out/mix.wav"):

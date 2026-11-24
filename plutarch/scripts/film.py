@@ -7,6 +7,7 @@
   python3 scripts/film.py source interview src/interview.mp3 "Show Name (2019)" https://where-you-got-it
   python3 scripts/film.py clip start interview 560.9 562.3 "the exact words" 2010 "what he was talking about"
       add --live for a crowd or phone recording, --isolate for music under the voice
+  python3 scripts/film.py clip start --isolate                  # change one clip: --live --isolate --no-live --no-isolate
   python3 scripts/film.py scenes clear                          # remove the template scenes
   python3 scripts/film.py scene add card --heading "NOVEMBER 6, 1860" --line "Elected president" --say "One fact." --clip start
   python3 scripts/film.py scene add title                       # uses "title" and "subject"
@@ -36,6 +37,7 @@ def load():
 def save(f):
     with open(FILM, "w", encoding="utf8") as fh: json.dump(f, fh, indent=1, ensure_ascii=False); fh.write("\n")
 
+def placeholder(s): return "<<" in s or bool(re.search(r"<[A-Za-z][^<>]*>", s))   # same rule as next.py
 def is_tpl(x): return "<<" in json.dumps(x)
 def words(s): return len(s.split())
 def num(s, what):
@@ -54,6 +56,10 @@ def cmd_set(a):
     if k == "max_seconds":
         v = int(num(v, "max_seconds"))
         if v > 140: print("NOTE: over 140 s only plays for X Premium accounts. Only do this if the user said so.")
+    old = f.get(k)
+    for sc in f.get("scenes", []):                     # the title and end cards show these: keep them in step
+        if k == "title" and sc.get("type") in ("title", "end") and sc.get("text") == old: sc["text"] = v
+        if k == "subject" and sc.get("type") == "title" and isinstance(old, str) and sc.get("sub", [None])[0] == old.upper(): sc["sub"][0] = v.upper()
     f[k] = v; save(f); print(f"OK {k} = {v}")
 
 def story():
@@ -99,6 +105,13 @@ def cmd_source(a):
 
 def cmd_clip(a):
     flags = [x for x in a if x.startswith("--")]; a = [x for x in a if not x.startswith("--")]
+    if len(a) == 1 and flags:                           # film.py clip KEY --isolate | --live | --no-live | --no-isolate
+        f = load(); c = f.get("clips", {}).get(a[0])
+        if not isinstance(c, dict) or is_tpl(c): die(f"no clip {a[0]!r}.")
+        for x in flags:
+            if x not in ("--live", "--isolate", "--no-live", "--no-isolate"): die(f"unknown option {x}.")
+            c[x.replace("--no-", "--")[2:]] = not x.startswith("--no-")
+        save(f); print(f"OK clip {a[0]}: live={bool(c.get('live'))} isolate={bool(c.get('isolate'))}"); return
     if len(a) != 7: die('use: film.py clip KEY SOURCE IN OUT "exact words" YEAR "what it is about"  [--live] [--isolate]')
     k, src, i, o, text, year, about = a; f = load()
     if not re.fullmatch(r"[A-Za-z0-9_-]+", k): die(f"key {k!r}: use letters, digits, - and _ only.")
@@ -113,6 +126,8 @@ def cmd_clip(a):
     c = {"src": src, "in": i, "out": o, "text": text.strip(), "year": year, "about": about.strip()}
     if "--live" in flags: c["live"] = True
     if "--isolate" in flags: c["isolate"] = True
+    for kk in ("live", "isolate", "lines"):            # keep what was set on this clip before unless told otherwise
+        if kk in clips.get(k, {}) and kk not in c and f"--no-{kk}" not in flags: c[kk] = clips[k][kk]
     clips[k] = c; f["clips"] = clips; save(f); print(f"OK clip {k} ({o - i:.1f} s)   ({len(clips)} clip(s))")
 
 SCENE_FLAGS = {"--at": "_at", "--id": "id", "--heading": "heading", "--bg": "bg", "--ghost": "ghost", "--text": "text",
@@ -218,7 +233,7 @@ EXAMPLES = {"FULL NAME", "TWO WORDS.", "2-3 WORDS.", "up to 7 words", "One fact 
             "the exact words said", "what he was talking about", "Born March 3, 1960 in Ohio", "https://first-source",
             "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT"}
 for x in sys.argv[2:]:
-    if x.strip() in EXAMPLES or "___" in x:
+    if x.strip() in EXAMPLES or "___" in x or placeholder(x):
         die(f"{x!r} is the example text from next.py.", "write the real value for this film there, then run the command again.")
 
 CMDS = {"set": cmd_set, "sentence": cmd_sentence, "fact": cmd_fact, "source": cmd_source, "clip": cmd_clip,
