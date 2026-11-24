@@ -1,250 +1,113 @@
 ---
 name: plutarch
-description: Make a short vertical documentary about a real person for X (Twitter) built on real audio clips of their own voice, with a narrator, music, word-timed captions and motion graphics. Use when asked for a documentary, profile, tribute or "clip doc" video about a person. Works with local models only (no paid API needed).
+description: Makes a finished MP4 documentary video (vertical, for X/Twitter) about a real person, built on real recordings of their own voice, with a narrator, music, captions and motion graphics. The scripts in this skill do the video, audio and timing work; you cannot do it by writing a script, outline or text file yourself. Use when asked to make a documentary, short film, profile, tribute, biopic, "clip doc" or any video about a real person, especially one with clips of them talking. Runs on local models, no paid API.
 ---
 
 # Plutarch: clip documentaries
 
-## Goal
+You make `out/final.mp4`: a 60-140 second vertical film about one real person. The person is heard in
+real recordings. A narrator states facts. The scripts in this folder cut, time, mix and draw everything.
 
-A 60-140 second vertical film (`out/final.mp4`) about one real person. The person is heard in **real
-recordings**. A narrator gives the facts. Music, captions and graphics are made by the scripts in this skill.
+`SKILL_DIR` below means the folder that holds this SKILL.md. Use its absolute path.
 
-## Done means
+## When to use
 
-1. `python3 scripts/check.py` prints `ALL CHECKS PASSED`. Nothing else counts as done.
-2. `story.md` has two sources for every fact the narrator or the screen states.
-3. Your final message lists: the file path, the length, every audio source with its URL, and the full
-   `check.py` table. If something is unchecked, say so.
+- The user asks for a documentary, profile, tribute, biopic or short film about a real person.
+- The user wants a video of a person "in their own words" or "with clips of them talking".
+- The user wants a video to post on X/Twitter about someone.
 
-## Before you start (rules for the whole job)
+Not for: videos with no real person at the center, or editing a video file the user already has.
 
-- **Not sure what is next?** Run `python3 scripts/next.py` in the project (before a project exists:
-  `python3 <skill>/scripts/next.py`). It reads the folder and prints the one next step with the exact command.
-- **Change `film.json` and `story.md` with `python3 scripts/film.py`** (`set`, `fact`, `source`, `clip`, `scene add`,
-  `drop`; run it with no arguments for examples). It checks each value, so you never break the JSON by hand.
-- **You never type a timestamp into the film.** You write scenes in order; `plan.py` computes every time.
-  The only numbers you type are rough `in`/`out` seconds copied from `clip.py find`.
-- **Do not edit the scripts. Do not edit audio or video by hand.** If a script prints `ERROR` or `FIX`, do what
-  that line says. If the same error comes back 3 times, stop and tell the user what it says.
+## Start here: the whole method is one loop
+
+1. **Run** `python3 SKILL_DIR/scripts/next.py` in the folder the user named (or your working folder).
+2. **Do exactly what it prints** under `DO:`. Copy its commands. Replace the example words (CAPITALS,
+   `___`, "up to 7 words") with real ones for this film.
+3. **Run next.py again** (it prints the command under `THEN:`). Repeat until it prints `DONE`.
+
+That is the job. `next.py` reads the project and always knows the next step, including when to wait for a
+long job. Never write your own video script, outline, shell script or placeholder file instead.
+
+Each step has more detail in `SKILL_DIR/references/steps.md` (same step numbers). Read it when a step
+fails twice.
+
+## Rules that next.py cannot check for you
+
+- **Change `film.json` and `story.md` only with `python3 scripts/film.py`.** Do not open them in an editor or
+  write them with a heredoc. next.py prints the film.py command for each change. `film.py show` and
+  `film.py scenes` print what is there now.
+
+- **Every quote is real.** It must come from a recording in `src/` that you downloaded. Never from memory
+  or an article.
+- **Every fact needs two sources** in `story.md`. Use only facts you read in search results. Never invent a
+  date, number or quote.
+- **Never fake the person's voice.** No voice cloning, no text-to-speech in their name. The narrator is a stock voice.
+- **No photos or video of the person.** The scripts draw original graphics only.
+- **Narrator lines:** one fact each, at most 16 words, no praise words like "legendary", "iconic", "visionary".
+- **Screen lines:** at most 7 words. Put each quote in the scene for the year it is about.
+- **The person speaks last.** The final speaking item in the film is one of their clips.
+- **Do not edit the scripts.** If a script prints `ERROR` or `FIX`, do what that line says.
 - **Never print big files.** Do not `cat` anything in `tx/`, `clips/`, `narr/` or `out/*.json`. Use
-  `clip.py find` and `clip.py show`. Add `| tail -20` to long commands.
-- **Long commands run in the background** (transcribe, clip make, render):
-  `nohup python3 scripts/render.py > out/render.log 2>&1 &` then `tail -3 out/render.log` every 30-60 s
-  until you see `OK` or `ERROR`.
-- After you change `film.json`, run again from `plan.py` down (table in "After a change").
-- `<skill>` below = the folder this file is in.
+  `python3 scripts/clip.py find` to search transcripts.
+- **Long jobs run in the background** (transcribe, clip make, render). next.py gives the exact `nohup ... &`
+  line and then tells you to wait. While it says `wait`, run `sleep 60` and then next.py. Do not start the job twice.
+- If the same error comes back 3 times, stop and tell the user what it says.
 
-## Steps
+## Done when
 
-### 0. Set up (once)
+- `python3 scripts/next.py` prints `DONE` (that means `check.py` printed `ALL CHECKS PASSED` after your last change).
+- Your last message gives the user: the path to `out/final.mp4`, its length, every audio source with its
+  URL, the table in `out/check.txt`, and one honest sentence about what you could not check yourself.
 
-```
-python3 <skill>/scripts/setup.py
-```
-Expect the last line `SETUP OK.` If it says `SETUP NOT READY`, run the install command it prints, then again.
+Never say "done", "verified" or "synced" before next.py prints `DONE`.
 
-```
-python3 <skill>/scripts/setup.py --init ~/films/<short-name>
-cd ~/films/<short-name>
-```
-Expect `PROJECT READY: ...`. From now on you are inside the project and every command is `python3 scripts/<name>.py`.
+## When something goes wrong
 
-### 1. Story first
-
-Read `<skill>/references/craft.md` sections 1-4. Search with your web search tool, or `python3 scripts/find_audio.py web "<query>"`. Then write the story into
-`story.md` with `python3 scripts/film.py sentence "<the whole film in one sentence>"` and, once per fact,
-`python3 scripts/film.py fact "<fact with its date>" <url 1> <url 2>`.
-Done when: the one sentence is written and you have at least 5 facts with two sources each.
-
-### 2. Find the subject's real voice
-
-Read `<skill>/references/finding-audio.md`. Get 2-4 sources into `src/`: one long clean interview, and one
-live moment if it exists.
-```
-python3 scripts/find_audio.py podcast "<show name>"
-python3 scripts/find_audio.py episodes "<feed url>" --grep "<guest name>"
-python3 scripts/find_audio.py get "<audio or video url>" --name interview
-```
-Expect `OK src/interview.mp3 ...` and a `film.py source` command. Write the show or event name and year in place
-of `SHOW (YEAR)` and run it; the first source replaces the template entries.
-
-### 3. Transcribe
-
-```
-nohup python3 scripts/transcribe.py src/interview.mp3 > out/tx.log 2>&1 &
-```
-A 90-minute interview takes 5-15 minutes on a CPU. Done when the log ends with
-`OK wrote tx/interview.json and tx/interview.txt (N lines).` Do this for every source.
-
-### 4. Pick 6-10 quotes and cut them
-
-Search for words and ideas from your story sheet:
-```
-python3 scripts/clip.py find tx/interview.json "back against the wall"
-```
-Expect blocks like this (the numbers are what you copy):
-```
-#1  match 97%   "in": 560.9, "out": 562.3
-     before: ...
-     >>>     <the sentence that was said>
-     after:  ...
-```
-Choose with craft.md section 3. Add one clip per quote (the first one replaces the template clips):
-```
-python3 scripts/film.py clip <key> <source key> <in> <out> "<the exact words>" <year said> "<what it was about>"
-```
-Add `--live` if it is a noisy recording (crowd, phone). Leave the scenes for step 5. Then:
-```
-nohup python3 scripts/clip.py make > out/clips.log 2>&1 &
-```
-Done when the log ends with `OK: N/N clips verified.` and the `verified` column says `asr` or `pitch` on every row.
-
-| the log says | do this |
+| what you see | do this |
 |---|---|
-| `heard` is different from your `text` | The recording wins. Run the same `film.py clip` again with the heard words, or pick another quote. |
-| `NOT IN THE CUT: "word"` | A word of your `text` was not found. If the quote still makes sense without it, change `text` to the heard words. If not, move `in` 1 s earlier (or `out` 1 s later) and run `clip.py make <id>` again, or pick another quote. |
-| `ERROR: clip 'x': could not find all of "..."` | Read the `Heard there:` line. Either `in`/`out` are off (run `clip.py find` again and copy the numbers) or your `text` is not what was said (fix `text`). |
-| `there is music or noise under this voice` | Run `film.py clip <key> --isolate`, then `clip.py make <id>`. |
-| `NOT VERIFIED` (the row says `unverified`) | Do exactly what that note says. Crowd or phone recording: `film.py clip <key> --live`. Already live: leave it off if the recording is clean, or set in and out tightly around the sentence. Still unverified after two tries: `film.py drop clip <key>`. |
+| `STEP 0 ... install the tools` | Run the setup command it prints. If pip fails, make the virtualenv it names, then run it again. |
+| `find_audio.py` finds no podcast | Try `find_audio.py archive "NAME"` and `find_audio.py web "NAME interview audio"`. YouTube is often blocked on servers; read `references/finding-audio.md`. |
+| `clip.py find` shows nothing useful | Search other words: one strong word, a place, a year, a name. Try the other transcript. |
+| A clip is `NOT VERIFIED` | Run the same `film.py clip KEY ...` again with the words from the `heard` column. |
+| `film.py` prints `ERROR` | Read its `FIX:` line, change that one value, and run the command again. |
+| `film.json is not valid JSON` | Someone edited it by hand. next.py prints the line and column; fix that spot once, then use film.py. |
+| `plan.py` says `OVER by` | Remove one quote or one narrator line. Never speed up the narrator. |
+| `check.py` has `FAIL` rows | next.py lists each `FIX` line. Do them, then run next.py. |
 
-Use `--live` **only** for crowd or phone recordings. On a clean interview it makes timing worse.
+## Worked example
 
-### 5. Write the scenes
-
-Remove the template scenes, then add yours in order. next.py prints a starting list built from your clips.
-```
-python3 scripts/film.py set title "<TWO WORDS.>"
-python3 scripts/film.py set accent "#C8102E"
-python3 scripts/film.py scenes clear
-python3 scripts/film.py scene add title
-python3 scripts/film.py scene add card --heading "<DATE>" --line "<max 7 words>" --say "<one fact>" --clip <key>
-python3 scripts/film.py scene add stack --heading "THE COST" --words "<3-6 words he says>" --clip <key>
-python3 scripts/film.py scene add end --accent-text "<2-3 WORDS.>"
-python3 scripts/film.py scenes
-```
-Items play in the order you give `--say`, `--clip` and `--gap`. New scenes go before the end card. Charts,
-crowd sound under a scene and timed lines are edited in `film.json` by hand: `<skill>/references/film-json.md`.
-Keep the beat order of craft.md section 1. Rules that matter most:
-narrator lines are facts and at most 16 words; screen lines at most 7 words; the subject's voice gets the
-last word; every quote sits in the scene for the year it is **about**.
-
-### 6. Narrator and timing
+User: "Make a short documentary about Abraham Lincoln for X. Put it in ./films/lincoln."
 
 ```
-python3 scripts/narrate.py
-python3 scripts/plan.py
+$ python3 /home/me/skills/plutarch/scripts/next.py
+STEP 1 of 12: make the film project
+DO:
+  python3 /home/me/skills/plutarch/scripts/setup.py --init ./films/SHORTNAME
+  cd ./films/SHORTNAME
+  python3 scripts/next.py
 ```
-`narrate.py`: every row must say `ok` (`MISREAD` → respell the hard word the way it sounds, run again).
-`plan.py`: expect a scene table, then `TOTAL 131.2 s (limit 140 s). OK.` and a `REAL VOICE ... NARRATOR ... QUOTES` line.
-If it says `OVER by`, remove a quote or a scene (do not speed up the narrator). If it prints a `FIX:` line, do it
-(usually: add a quote or cut a narrator line). Then run both again. Other voices: `<skill>/references/voices-music-sfx.md`.
-
-### 7. Music
-
-Default, works everywhere:
+The agent runs `setup.py --init ./films/lincoln`, then `cd ./films/lincoln`, then `python3 scripts/next.py`:
 ```
-python3 scripts/score.py synth
+STEP 2 of 12: write the subject's name into film.json
+DO:
+  python3 scripts/film.py set subject "FULL NAME"
 ```
-Expect `OK music/synth.wav (...)`. Better, if a music generator is available: `python3 scripts/score.py acestep`
-(local ACE-Step server), or `python3 scripts/score.py prompt` → generate 2-3 tracks → `python3 scripts/score.py pick music/*.mp3`
-→ put the winner in `film.json` `"music": {"file": "music/<name>"}`. Details: voices-music-sfx.md.
+The agent runs `python3 scripts/film.py set subject "Abraham Lincoln"` and runs next.py again. It keeps going
+the same way: `film.py fact` for each fact it found, download two recordings, `film.py source`, transcribe,
+`film.py clip` for each quote, `film.py scene add` for each scene,
+narrate, plan, mix, render, until next.py prints `DONE: check.py passed for out/final.mp4 (118.4 s).`
 
-### 8. Mix
+## More reading (only when you need it)
 
-```
-python3 scripts/mix.py
-```
-Expect a table where **every row ends in `ok`**, then
-`OK: out/mix.wav  131.2 s  loudness -14.4 LUFS (target -14)  peak -1.6 dB (must be below -1).`
-A row that says `COVERED`: something loud sits under that voice. Run `film.py clip <key> --isolate` (crowd or phone
-recording: `film.py clip <key> --live`), then `clip.py make <id>`, `plan.py`, `mix.py`.
-
-### 9. Preview frames (seconds, not minutes)
-
-```
-python3 scripts/render.py --sheet
-```
-Expect a table with no `EMPTY` and no `CUT OFF AT EDGE`, then `OK: out/sheet.jpg (N frames)`. If you can view
-images, open `out/sheet.jpg` and check it with craft.md section 6. `CUT OFF AT EDGE`: shorten that scene's
-heading or lines. `EMPTY`: that scene has no heading, lines or clip: give it one. Then `plan.py`, `mix.py`,
-`render.py --sheet` again.
-
-### 10. Render and check
-
-```
-nohup python3 scripts/render.py > out/render.log 2>&1 &
-```
-About 4 minutes per minute of film on a CPU. Done when the log ends with `OK out/final.mp4 (131.2 s). Next: python3 scripts/check.py`. Then:
-```
-python3 scripts/check.py
-```
-Expect 18 `PASS` rows and `ALL CHECKS PASSED  (out/final.mp4)`. For every `FAIL`, do its `FIX` line, then run
-`check.py` again. Do not stop at `NOT DONE`.
-
-### 11. Hand over
-
-Give the user: `out/final.mp4`, the length, the list of audio sources with URLs, the `check.py` table, and one
-honest sentence about anything you could not check (for example: "I cannot view images; the frame table was all ok").
-
-## After a change, run again from here
-
-| you changed | run, in order |
-|---|---|
-| a clip's `in`/`out`/`text`/`live`/`isolate` | `clip.py make <id>` → `plan.py` → `mix.py` → `render.py` → `check.py` |
-| a narrator line, or the voice | `narrate.py` → `plan.py` → `mix.py` → `render.py` → `check.py` |
-| scene order, items, gaps | `plan.py` → `mix.py` → `render.py` → `check.py` |
-| only text on screen (heading, lines, colors) in one scene | `plan.py` → `render.py --scene <id>` → `check.py` |
-| only music or sound effects | `mix.py` → `render.py --mux` (seconds) → `check.py` |
-
-## Decisions (and why)
-
-- **Sound first, picture second.** Every picture event is timed from the finished sound. That is why captions
-  and impacts land exactly: `plan.py` and `mix.py` run before any frame is drawn.
-- **Real voice for feeling, narrator for facts.** A synthetic voice saying emotional lines sounds fake; a real
-  person saying them is the whole reason people watch.
-- **No photos or video of the person.** Original motion graphics only: no image-rights problems, and the film
-  looks like one designed piece instead of a slideshow.
-- **Word-by-word captions on every quote.** Most viewers watch muted, and a word that appears as it is spoken
-  proves the quote is real.
-- **Vertical 1080x1920, at most 140 s, about -14 LUFS.** That is what X plays best for normal accounts.
-- **Cold open on real sound, music enters at the title.** The first two seconds decide whether anyone stays.
-- **Local, free tools by default** (Kokoro voice, built-in score). Better engines are a swap in `film.json`,
-  never a reason to stall.
-
-## Don't
-
-- Don't trust a quote from memory or from an article. If it is not in a recording in `src/`, it is not in the film.
-- Don't put a quote under a date it is not about. (A line about one year once played over a card for another.)
-- Don't make the subject "say" anything with a voice model, and don't feed any real person's voice to a
-  cloning model. Narrator = stock voice.
-- Don't type caption or scene times, and don't trust word times in a noisy clip without `--live`.
-  (A caption once ran 4 seconds early because speech was hidden in crowd noise.)
-- Don't keep another creator's music under a quote: `film.py clip <key> --isolate`.
-- Don't let the narrator praise or summarize feelings. No "legendary", "visionary", "iconic".
-- Don't add a closing line the facts don't support. (An end-card line about "investigations" had to be removed.)
-- Don't start on a black frame. Scene 1 is an `arena` with `reveal: hits`, or a card that starts with a clip.
-- Don't run a full render to change only sound: `mix.py` then `render.py --mux`.
-- Don't raise `max_seconds` above 140 unless the user says the account has Premium.
-- Don't say "done", "verified" or "synced" unless `check.py` printed `ALL CHECKS PASSED` after your last change.
-
-## Verify before you say you're done
-
-Run `python3 scripts/check.py` **after your last change** and paste its table. It measures the finished file:
-format, length, loudness, peak, dead air, black first frame, empty scenes, every line's position against the
-plan (to 0.1 s), spoken words against caption words, voice over music, credits, that every quote is
-verified with a year and context, that real voice is at least half of the talking, and that the subject
-speaks last. Then read `story.md` once more: every fact on screen has two sources.
+- `references/steps.md`: every step in detail, with what each script prints.
+- `references/craft.md`: the shape of the film, choosing quotes, writing lines.
+- `references/film-json.md`: every field in film.json.
+- `references/finding-audio.md`: where to find real recordings.
+- `references/voices-music-sfx.md`: other narrator voices and music engines.
+- `references/decisions.md`: why the kit works this way, and the mistakes it prevents.
 
 ## Harness notes
 
 - Install this folder where your agent looks for skills: omp `~/.omp/agent/skills/plutarch/`,
-  pi `~/.pi/agent/skills/plutarch/`, Claude Code `~/.claude/skills/plutarch/`,
-  Codex `~/.agents/skills/plutarch/`.
-- No GPU is needed: every script runs on the CPU. A GPU only matters for optional bigger voice or music models.
-- Agents without image input: steps 9 and 10 print numeric tables. Trust them and say so in the hand-over.
-- YouTube often blocks servers ("confirm you're not a bot"). Use the podcast or X route in finding-audio.md.
-
----
-Tested with: no student model yet. Teacher-side only: the checks pass on the reference film and fail on a
-known-bad cut; the scripts were run end to end on four test films with the default local engines.
+  pi `~/.pi/agent/skills/plutarch/`, Claude Code `~/.claude/skills/plutarch/`, Codex `~/.agents/skills/plutarch/`.
+- No GPU is needed. Agents without image input can trust the numeric tables the scripts print; say so in the hand-over.
