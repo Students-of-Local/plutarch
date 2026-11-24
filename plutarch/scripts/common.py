@@ -61,7 +61,7 @@ def save_wav(path, x, sr=SR):
 
 def clip_spec(c):
     """Fingerprint of the clip fields that change the cut. next.py compares it to find stale clips."""
-    keep = {k: c.get(k) for k in ("src", "in", "out", "text", "live", "isolate")}
+    keep = {k: c.get(k) for k in ("src", "in", "out", "text", "lines", "live", "isolate")}
     return hashlib.md5(json.dumps(keep, sort_keys=True).encode()).hexdigest()[:10]
 
 def say_id(text):

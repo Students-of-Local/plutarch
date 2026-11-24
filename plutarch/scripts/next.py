@@ -3,7 +3,7 @@
 
   python3 <skill folder>/scripts/next.py      # before a project exists: says how to start
   python3 scripts/next.py                      # inside the project folder: the next step
-  python3 scripts/next.py --wait               # while a long job runs: waits up to 4 minutes, then says what is next
+  python3 scripts/next.py --wait               # while a long job runs: waits up to 100 s, then says what is next
 
 It only reads files and lists processes. It never changes the film. Finishes with DONE when check.py passed."""
 import os, sys, re, json, glob, hashlib, subprocess, importlib.util, time
@@ -42,7 +42,7 @@ def holders(x, path=""):
     return out
 
 def spec(c):
-    keep = {k: c.get(k) for k in ("src", "in", "out", "text", "live", "isolate")}
+    keep = {k: c.get(k) for k in ("src", "in", "out", "text", "lines", "live", "isolate")}
     return hashlib.md5(json.dumps(keep, sort_keys=True).encode()).hexdigest()[:10]
 
 def say_id(text): return "n" + hashlib.md5(text.strip().encode("utf8")).hexdigest()[:9]
@@ -90,15 +90,20 @@ if missing:
 
 # ---- 1. inside a project? ----
 if not (os.path.exists("film.json") and os.path.isdir("scripts")):
+    make = [f"python3 {KIT}/setup.py --init ./films/SHORTNAME      # SHORTNAME = the person's last name, lowercase, e.g. lincoln",
+            "cd ./films/SHORTNAME", "python3 scripts/next.py"]
     found = sorted(glob.glob("films/*/film.json") + glob.glob("*/film.json"))
     if found:
-        d = os.path.dirname(found[0])
-        say(1, "go into your film project", [f"cd {d}", "python3 scripts/next.py"], then=None,
-            why=f"a project already exists in {d}")
-    say(1, "make the film project",
-        [f"python3 {KIT}/setup.py --init ./films/SHORTNAME      (SHORTNAME = the person's last name, lowercase, e.g. ./films/lincoln)",
-         "cd ./films/SHORTNAME",
-         "python3 scripts/next.py"], then=None,
+        rows = []
+        for f in found[:8]:
+            try: who_f = json.load(open(f, encoding="utf8")).get("subject", "?")
+            except Exception: who_f = "?"
+            rows.append(f"  {os.path.dirname(f)}   subject: {who_f}")
+        say(1, "go into the project for THIS film, or make a new one",
+            ["Film projects already here:"] + rows +
+            ["If one of them is about the person the user asked for now: cd into it, then python3 scripts/next.py",
+             "Otherwise make a new project:"] + ["  " + m for m in make], then=None)
+    say(1, "make the film project", make, then=None,
         why="there is no film.json here. If the user named a folder, use that folder instead of ./films/SHORTNAME.")
 
 proj = os.getcwd()
@@ -109,14 +114,14 @@ who = subject if subject and "<<" not in subject else "FULL NAME"
 jobs = running(proj)
 if jobs and WAIT:
     t0 = time.time()
-    while jobs and time.time() - t0 < 240:
+    while jobs and time.time() - t0 < 100:
         time.sleep(10); jobs = running(proj)
 if jobs:
     name = re.search(r"scripts/(\w+)\.py", jobs[0]); name = name.group(1) if name else "a script"
     logs = {"transcribe": "tx.log", "clip": "clips.log", "render": "render.log"}
     last = log_tail(logs.get(name, "")) if name in logs else ""
     say("-", f"wait: {name}.py is still running",
-        ["python3 scripts/next.py --wait      (waits up to 4 minutes, then tells you what is next)"] + ([f"progress: {last}"] if last else []),
+        ["python3 scripts/next.py --wait      # waits up to 100 s, then tells you what is next"] + ([f"progress: {last}"] if last else []),
         why="a long job is working in the background. Do not start it again and do not start the next step yet.", then=None)
 
 for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "clip.py make"), ("render.log", "out/final.mp4", "render.py")):
@@ -149,7 +154,7 @@ if len(facts) < 5 or not sentence_ok:
         why=f"story.md has {len(facts)} fact rows with two URLs (need 5)" + ("" if sentence_ok else " and no one-sentence summary yet"))
 
 # ---- 3. audio sources ----
-AUD = (".mp3", ".m4a", ".wav", ".mp4", ".webm", ".mkv", ".opus", ".ogg", ".aac", ".mov")
+AUD = (".mp3", ".m4a", ".wav", ".flac", ".mp4", ".webm", ".mkv", ".opus", ".ogg", ".aac", ".mov")
 srcfiles = sorted(f for f in glob.glob("src/*") if f.lower().endswith(AUD))
 sources = film.get("sources", {})
 if not srcfiles:
@@ -184,7 +189,7 @@ for k, v in sources.items():
     if not os.path.exists(f"tx/{stem}.json"):
         say(4, f"transcribe {v['file']}",
             [f"nohup python3 scripts/transcribe.py {v['file']} > out/tx.log 2>&1 &",
-             "python3 scripts/next.py --wait      (waits while transcribe runs)"], then=None,
+             "python3 scripts/next.py --wait      # waits while transcribe runs"], then=None,
             why="you search the transcript for quotes. A 1-hour file takes about 5-10 minutes.")
 
 # ---- 5. quotes ----
@@ -204,14 +209,14 @@ if holders(clips) or len(real) < 6:
 srcs_used = {c["src"] for c in real.values()}
 if len(srcs_used) < 2:
     say(5, "add a quote from your second recording",
-        [f"python3 scripts/clip.py find tx/SECOND.json \"words\"      (transcripts: {', '.join(tx)})",
+        [f"python3 scripts/clip.py find tx/SECOND.json \"words\"      # transcripts: {', '.join(tx)}",
          "Add it to film.json \"clips\" with \"src\" set to the second source's key."],
         why="all clips come from one source; the film needs real voice from 2 or more.")
 stale = [k for k, c in real.items() if not os.path.exists(f"clips/{k}.json") or (load(f"clips/{k}.json") or {}).get("spec", spec(c)) != spec(c)]
 if stale:
     say(6, "cut and verify the quotes",
         ["nohup python3 scripts/clip.py make > out/clips.log 2>&1 &",
-         "python3 scripts/next.py --wait      (waits while clips are cut)"], then=None,
+         "python3 scripts/next.py --wait      # waits while clips are cut"], then=None,
         why="clips not cut yet (or changed since): " + ", ".join(stale))
 unver = [k for k in real if (load(f"clips/{k}.json") or {}).get("verified") == "unverified"]
 if unver:
@@ -290,7 +295,7 @@ if mtime("out/sheet.jpg") < mtime("out/mix.wav"):
 if mtime("out/final.mp4") < max(mtime("out/mix.wav"), mtime("out/plan.json")):
     say(11, "render the film",
         ["nohup python3 scripts/render.py > out/render.log 2>&1 &",
-         "python3 scripts/next.py --wait      (waits while the film renders: about 4 minutes per minute of film)"], then=None)
+         "python3 scripts/next.py --wait      # waits while the film renders: about 4 minutes per minute of film"], then=None)
 
 # ---- 12. check ----
 if mtime("out/check.txt") < max(mtime("out/final.mp4"), mtime("film.json"), mtime("story.md")):
@@ -306,6 +311,10 @@ if "ALL CHECKS PASSED" in res:
     print("  4. one honest sentence about anything you could not check yourself (for example, you cannot watch video).")
     sys.exit(0)
 fails = [l for l in res.splitlines() if l.lstrip().startswith(("FAIL", "FIX", "ERROR")) or "  FIX" in l]
+if not fails:
+    say(12, "check.py crashed", ["out/check.txt ends with:"] + ["  " + l[:160] for l in res.strip().splitlines()[-4:]] +
+        ["Fix what the last line names (a missing file: rerun the step that makes it), then: rm out/check.txt"],
+        why="check.py stopped before it could measure the film.")
 say(12, "fix what check.py failed",
     ["These lines are from out/check.txt:"] + ["  " + l.strip()[:160] for l in fails[:14]] +
     ["Do each FIX line. After any change, python3 scripts/next.py tells you what to rerun."],

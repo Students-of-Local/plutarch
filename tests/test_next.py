@@ -59,6 +59,24 @@ class NextPy(unittest.TestCase):
         for n in ("interview", "speech"): open(os.path.join(self.proj, "tx", n + ".json"), "w").write("{}")
         self.assertIn("STEP 5 of 12: choose 6-10 quotes", self.run_next())
 
+    def commands(self, out):
+        return [l.strip() for l in out.splitlines() if l.strip().startswith(("python3 ", "nohup ", "cd "))]
+
+    def test_every_printed_command_is_valid_bash(self):
+        empty = os.path.join(self.tmp, "empty"); os.makedirs(empty)
+        outs = [self.run_next(), self.run_next(cwd=self.tmp), self.run_next(cwd=empty)]
+        self.film(subject="Abraham Lincoln"); outs.append(self.run_next())
+        for o in outs:
+            for c in self.commands(o):
+                r = subprocess.run(["bash", "-n", "-c", c], capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, f"not valid bash: {c}\n{r.stderr}")
+
+    def test_old_project_does_not_hide_new_one(self):
+        self.film(subject="Tim Tebow")
+        out = self.run_next(cwd=self.tmp)
+        self.assertIn("films/test   subject: Tim Tebow", out)
+        self.assertIn("setup.py --init ./films/SHORTNAME", out)
+
     def test_crashed_job_is_reported(self):
         self.film(subject="Abraham Lincoln", sources={"interview": {"file": "src/interview.mp3", "credit": "Show (1860)", "url": "https://x.test"}})
         open(os.path.join(self.proj, "out", "tx.log"), "w").write("Traceback (most recent call last):\nRuntimeError: Library libcublas.so.12 is not found\n")
