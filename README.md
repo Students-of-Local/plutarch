@@ -121,8 +121,9 @@ Measured on 2026-11-24 with local models under the pi harness on one machine, tr
   (`/skill:plutarch` in pi) when you use a small model.
 - **No local model has finished a film yet.** In 35-minute runs with the skill named, qwen3:4b on the first
   version downloaded and transcribed a real interview but wrote its own film.json outside a project (step 1 of
-  12). Those failures led to `next.py`, `film.py` and the `cd` prefix on every printed command. Runs of the
-  current version on qwen3:4b, LFM2.5-8B-A1B and LFM2.5-24B-A2B are in progress.
+  12). Those failures led to `next.py` and `film.py`. With them, qwen3:4b reached step 2 of 12 in 55 tool calls,
+  then lost its place because the pi shell forgets `cd` between calls; every printed command now starts with
+  `cd <project> &&`. Runs of the current version on qwen3:4b, LFM2.5-8B-A1B and LFM2.5-24B-A2B are in progress.
 
 `distill/DISTILL.md` has the acceptance checks for testing a student model with
 [skill-distill](https://github.com/sybil-solutions/skill-distill).
