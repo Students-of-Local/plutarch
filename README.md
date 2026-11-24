@@ -12,7 +12,7 @@
 Plutarch is an agent skill that makes a short vertical documentary about a real person for X. The person is
 heard in **real recordings of their own voice**; a narrator gives the facts; music, word-by-word captions and
 original motion graphics come from the skill's own scripts. An agent drives it one printed command at a time,
-and a local open-weight model can run it; how far small models get today is under [Status](#status). Free and
+and the steps are written for small local models to follow; how far they get today is under [Status](#status). Free and
 local by default: no GPU, no API key.
 
 <p align="center"><img src="assets/demo-strip.jpg" alt="Five frames from a Plutarch test film about Tim Tebow: the title card THE PROMISE., a dated card for December 8, 2007, a stack of his spoken words ending in HARD, a stadium scene captioned you either win or you learn, and the end card WIN OR LEARN." width="900"></p>
