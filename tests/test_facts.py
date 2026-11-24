@@ -16,6 +16,7 @@ PAGES = {
     "/far": NAME + f"<p>He was elected president on November 6. {FAR} A railway opened in 1860.</p>",
     "/surname": "<p>Robert Lincoln was not elected president on November 6, 1860.</p>",
     "/noname": "<p>Stephen Douglas was not elected president on November 6, 1860.</p>",
+    "/p%C3%A9": NAME + "<p>He was elected president on November 6, 1860.</p>",
     "/born": NAME + "<p>He was born 1947 in Australia.</p>", "/born2": NAME + "<p>He was born 1947 in Australia.</p>",
     "/note": NAME + '<p>Elected president on November 6, 1860.<sup class="reference"><a>[9]</a></sup> He won three states.</p>',
     "/note2": NAME + "<p>Elected president on Nov. 6, 1860. He won 3 states.</p>",
@@ -52,6 +53,25 @@ class Facts(Project):
         code, out = self.fact("/a", "/b")
         self.assertEqual(code, 0, out); self.assertGreater(self.rows(), 0)
 
+    def test_an_accented_address_opens(self):
+        self.assertEqual(self.fact("/a", "/p\u00e9")[0], 0)
+
+    def test_a_title_or_suffix_is_not_the_name(self):
+        self.film(subject="Dr. Abraham Lincoln Jr.")
+        self.assertEqual(self.kit("film.py", "fact", FACT, self.url + "/a", self.url + "/b")[0], 0)
+
+    def test_the_subject_must_be_set_first(self):
+        code, out = self.kit("film.py", "fact", FACT, self.url + "/a", self.url + "/b")
+        self.assertEqual(code, 1); self.assertIn("film.py set subject", out)
+
+    def test_a_new_subject_is_checked_again(self):
+        self.story(*self.GOOD, self.GOOD[0]); self.kit("facts.py")
+        self.assertNotIn("check the facts", self.kit("next.py")[1])
+        self.film(subject="Stephen Douglas"); self.assertIn("check the facts", self.kit("next.py")[1])
+
+    def test_off_says_nothing_was_checked(self):
+        self.assertIn("nothing was checked", self.kit("facts.py", off=True)[1])
+
     def test_a_fact_without_numbers(self):
         code, out = self.fact("/a", "/noyear", "Elected president in November")
         self.assertEqual(code, 0, out)
@@ -71,7 +91,7 @@ class Facts(Project):
         for text in ("Elected president on October 6, 1860", "Elected president on Oct 6, 1860", "Elected president on November 9, 1860",
                      "Won two states in 1860"):                                                   # 9 is only a footnote; three states, not two
             self.assertEqual(self.fact("/note", "/note2", text)[0], 1, text)
-        self.assertIn("same URL", self.fact("/a", "/a")[1])
+        for p in ("/a", "/a#early-life", "/a/"): self.assertIn("same URL", self.fact("/a", p)[1])
         self.assertEqual(self.rows(), 0)
 
     def test_off_is_for_a_person_who_checked(self):
@@ -129,8 +149,9 @@ class Facts(Project):
         code, out = self.kit("facts.py"); self.assertEqual(code, 0, out); self.assertEqual(out.count("OK: fact"), 3)
 
     def test_added_facts_need_no_second_check(self):
-        for day in ("November 6, 1860", "Nov 6, 1860", "November 6 in 1860", "6 November 1860", "November 1860"):
-            self.assertEqual(self.fact("/a", "/b", f"Elected president on {day}")[0], 0, day)
+        for n, day in enumerate(("November 6, 1860", "Nov 6, 1860", "November 6 in 1860", "6 November 1860", "November 1860"), 1):
+            code, out = self.fact("/a", "/b", f"Elected president on {day}"); self.assertEqual(code, 0, day)
+            self.assertIn(f"{5 - n} more to add" if n < 5 else "Next: python3 scripts/next.py", out)    # qwen3:4b stopped after a bare OK
         self.assertEqual(len(__import__("re").findall("(?m)^\\| [1-5] \\| Elected", open(os.path.join(self.proj, "story.md")).read())), 5)
         self.kit("film.py", "sentence", "He rose from a cabin to the presidency, it cost him, and then he won.")
         self.assertIn("STEP 3 of 12", self.kit("next.py")[1])

@@ -87,7 +87,7 @@ def cmd_fact(a):
     text, u1, u2 = a
     for u in (u1, u2):
         if not u.startswith(("http://", "https://")): die(f"{u!r} is not a URL.", "copy the full https:// address from the search result.")
-    if u1 == u2: die("the two sources are the same URL.", "each fact needs two different sources.")
+    if facts.same(u1, u2): die("the two sources are the same URL.", "each fact needs two different sources.")
     who = str(load().get("subject") or "")
     if not facts.OFF:
         if not who or is_tpl(who): die("film.json has no subject yet.", 'python3 scripts/film.py set subject "the person\'s name", then add the fact.')
@@ -102,7 +102,7 @@ def cmd_fact(a):
         i += 1
     n = len([l for l in lines[head + 2:i] if l.startswith("|")]) + 1
     lines.insert(i, f"| {n} | {text.strip()} | {u1} | {u2} |")
-    write_file(STORY, "\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md")
+    write_file(STORY, "\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md. " + (f"{5 - n} more to add." if n < 5 else "Next: python3 scripts/next.py"))
 
 def cmd_source(a):
     if len(a) != 4: die('use: film.py source KEY FILE "Credit (year)" URL')
@@ -113,7 +113,7 @@ def cmd_source(a):
         die(f"credit {credit!r} needs the real show or event name and its year.", 'e.g. "The Turf podcast (2025)" or "Gettysburg Address (1863)".')
     src = {kk: v for kk, v in f.get("sources", {}).items() if not is_tpl(v)}      # first real source drops the template ones
     src[k] = {"file": path, "credit": credit, "url": url}; f["sources"] = src; save(f)
-    print(f"OK source {k} -> {path}   ({len(src)} source(s))")
+    print(f"OK source {k} -> {path}   ({len(src)} source(s)). Next: python3 scripts/next.py")
 
 BEATS = ["start", "risk", "cost", "turn", "payoff", "comeback"]
 def free_key(used):
