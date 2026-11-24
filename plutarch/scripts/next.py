@@ -6,10 +6,11 @@
   python3 scripts/next.py --wait               # while a long job runs: waits up to 100 s, then says what is next
 
 It only reads files and lists processes. It never changes the film. Finishes with DONE when check.py passed."""
-import os, sys, re, json, glob, hashlib, subprocess, importlib.util, time
+import os, sys, re, json, glob, hashlib, subprocess, importlib.util, time, shlex
 WAIT = "--wait" in sys.argv
 
 KIT = os.path.dirname(os.path.realpath(__file__))
+QKIT = shlex.quote(KIT)
 TOTAL = 12
 
 def say(step, title, do, why=None, then="python3 scripts/next.py"):
@@ -84,13 +85,13 @@ need = ["numpy", "scipy", "soundfile", "pyloudnorm", "librosa", "skia", "PIL", "
 missing = [m for m in need if importlib.util.find_spec(m) is None]
 if missing:
     say(0, "install the tools (once per machine)",
-        [f"python3 {KIT}/setup.py --install",
+        [f"python3 {QKIT}/setup.py --install",
          "If it says pip failed: python3 -m venv ~/.venvs/plutarch && . ~/.venvs/plutarch/bin/activate   then run the line above again."],
         why="missing Python packages: " + ", ".join(missing))
 
 # ---- 1. inside a project? ----
 if not (os.path.exists("film.json") and os.path.isdir("scripts")):
-    make = [f"python3 {KIT}/setup.py --init ./films/SHORTNAME      # SHORTNAME = the person's last name, lowercase, e.g. lincoln",
+    make = [f"python3 {QKIT}/setup.py --init ./films/SHORTNAME      # SHORTNAME = the person's last name, lowercase, e.g. lincoln",
             "cd ./films/SHORTNAME", "python3 scripts/next.py"]
     found = sorted(glob.glob("films/*/film.json") + glob.glob("*/film.json"))
     if found:
@@ -143,7 +144,8 @@ if who == "FULL NAME":
     say(2, "write the subject's name into film.json",
         ['Open film.json. Set "subject" to the person\'s full name, e.g. "subject": "Abraham Lincoln". Save.'])
 if len(facts) < 5 or not sentence_ok:
-    do = [f'python3 scripts/find_audio.py web "{who} biography"',
+    search_ok = importlib.util.find_spec("ddgs") or os.environ.get("SEARXNG_URL") or os.environ.get("BRAVE_API_KEY")
+    do = ([] if search_ok else ["find_audio.py web needs a search engine. Run: python3 -m pip install ddgs   (or use your own web search tool for the next two lines)"]) + [f'python3 scripts/find_audio.py web "{who} biography"',
           f'python3 scripts/find_audio.py web "{who} career timeline"',
           "Open story.md and fill it in. Replace the ____ under 'The film in one sentence' with one sentence.",
           "Add at least 5 fact rows to the Facts table. Each row has the fact and TWO different source URLs:",
@@ -167,14 +169,14 @@ if not srcfiles:
          "It prints an 'Add to film.json:' line. Copy that entry into film.json \"sources\"."],
         why="src/ has no audio yet. Read references/finding-audio.md if podcasts find nothing. YouTube is often blocked; prefer podcasts.")
 bad_src = [k for k, v in sources.items() if holders(v) or not os.path.exists(v.get("file", ""))]
-if bad_src:
+if bad_src or not sources:
     files = ", ".join(srcfiles)
     say(3, "list your recordings in film.json \"sources\"",
         [f"Files in src/: {files}",
          "Open film.json. In \"sources\", keep one entry per file you have and DELETE template entries you do not use.",
          'Each entry: "interview": {"file": "src/interview.mp3", "credit": "Show Name (2019)", "url": "https://where-you-got-it"}',
          "The 'Add to film.json:' line that find_audio.py get printed has the right values."],
-        why="these sources are template text or point to a missing file: " + ", ".join(bad_src))
+        why=("these sources are template text or point to a missing file: " + ", ".join(bad_src)) if bad_src else "film.json \"sources\" is empty.")
 if len(sources) < 2:
     say(3, "get a second recording (a different interview, speech or event)",
         [f'python3 scripts/find_audio.py podcast "{who}"',
@@ -186,9 +188,9 @@ if len(sources) < 2:
 # ---- 4. transcripts ----
 for k, v in sources.items():
     stem = os.path.splitext(os.path.basename(v["file"]))[0]
-    if not os.path.exists(f"tx/{stem}.json"):
+    if mtime(f"tx/{stem}.json") < mtime(v["file"]):
         say(4, f"transcribe {v['file']}",
-            [f"nohup python3 scripts/transcribe.py {v['file']} > out/tx.log 2>&1 &",
+            [f"nohup python3 scripts/transcribe.py {shlex.quote(v['file'])} > out/tx.log 2>&1 &",
              "python3 scripts/next.py --wait      # waits while transcribe runs"], then=None,
             why="you search the transcript for quotes. A 1-hour file takes about 5-10 minutes.")
 
@@ -212,7 +214,14 @@ if len(srcs_used) < 2:
         [f"python3 scripts/clip.py find tx/SECOND.json \"words\"      # transcripts: {', '.join(tx)}",
          "Add it to film.json \"clips\" with \"src\" set to the second source's key."],
         why="all clips come from one source; the film needs real voice from 2 or more.")
-stale = [k for k, c in real.items() if not os.path.exists(f"clips/{k}.json") or (load(f"clips/{k}.json") or {}).get("spec", spec(c)) != spec(c)]
+def cut_is_stale(k, c):
+    d = load(f"clips/{k}.json")
+    if not d: return True
+    if "spec" in d: return d["spec"] != spec(c)
+    want = c.get("text") or " ".join(c.get("lines") or [])          # cut by an older kit: compare what it stored
+    return (d.get("wanted") != want or bool(d.get("live")) != bool(c.get("live")) or "isolate" in c
+            or abs(d.get("in_exact", -99) - c["in"]) > 2.0 or abs(d.get("out_exact", -99) - c["out"]) > 2.0)
+stale = [k for k, c in real.items() if cut_is_stale(k, c)]
 if stale:
     say(6, "cut and verify the quotes",
         ["nohup python3 scripts/clip.py make > out/clips.log 2>&1 &",
@@ -282,6 +291,9 @@ if sp and sp[-1]["role"] == "narr":
 
 # ---- 10. music + mix ----
 mus = (film.get("music") or {}).get("file") or "music/synth.wav"
+if mus != "music/synth.wav" and not os.path.exists(mus):
+    say(10, f"music file {mus} is missing", [f"Put the track at {mus}, or set film.json \"music\" back to {{\"synth\": true}}."],
+        why="film.json \"music\" names a file that does not exist.")
 if not os.path.exists(mus) or (mus == "music/synth.wav" and mtime(mus) < mtime("out/plan.json")):
     say(10, "make the music", ["python3 scripts/score.py synth"])
 if mtime("out/mix.wav") < max(mtime("out/plan.json"), mtime(mus)):

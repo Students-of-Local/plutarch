@@ -77,6 +77,36 @@ class NextPy(unittest.TestCase):
         self.assertIn("films/test   subject: Tim Tebow", out)
         self.assertIn("setup.py --init ./films/SHORTNAME", out)
 
+    def ready_for_clips(self):
+        """A project whose story, two sources and transcripts are done."""
+        self.film(subject="Abraham Lincoln",
+                  sources={n: {"file": f"src/{n}.mp3", "credit": f"{n} (1860)", "url": "https://x.test"} for n in ("interview", "speech")})
+        p = os.path.join(self.proj, "story.md"); s = open(p).read()
+        s = s.replace('"He/She/They ____________, it cost ____________, and then ____________."', "He rose from a cabin to the presidency, it cost him dearly, and then he won.")
+        open(p, "w").write(s.replace("| 1 | | | |", "\n".join(f"| {i} | f | https://a.test/{i} | https://b.test/{i} |" for i in range(1, 6))))
+        for n in ("interview", "speech"):
+            open(os.path.join(self.proj, "src", n + ".mp3"), "wb").close()
+            with open(os.path.join(self.proj, "tx", n + ".json"), "w") as f: f.write("{}")
+
+    def test_replaced_recording_is_transcribed_again(self):
+        self.ready_for_clips()
+        self.assertIn("STEP 5", self.run_next())
+        t = os.path.getmtime(os.path.join(self.proj, "tx", "interview.json"))
+        os.utime(os.path.join(self.proj, "src", "interview.mp3"), (t + 10, t + 10))
+        self.assertIn("STEP 4 of 12: transcribe src/interview.mp3", self.run_next())
+
+    def test_old_kit_cut_is_redone_after_an_edit(self):
+        self.ready_for_clips()
+        clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}
+        self.film(clips=clips)
+        for k, c in clips.items():   # what clip.py of the previous release stored: no "spec"
+            with open(os.path.join(self.proj, "clips", k + ".json"), "w") as f:
+                json.dump({"id": k, "wanted": c["text"], "in_exact": c["in"] + 0.2, "out_exact": c["out"] - 0.1, "live": False, "verified": "asr"}, f)
+        self.assertNotIn("STEP 6", self.run_next())
+        clips["c3"]["text"] = "different words"; self.film(clips=clips)
+        out = self.run_next()
+        self.assertIn("STEP 6 of 12: cut and verify the quotes", out); self.assertIn("c3", out)
+
     def test_crashed_job_is_reported(self):
         self.film(subject="Abraham Lincoln", sources={"interview": {"file": "src/interview.mp3", "credit": "Show (1860)", "url": "https://x.test"}})
         open(os.path.join(self.proj, "out", "tx.log"), "w").write("Traceback (most recent call last):\nRuntimeError: Library libcublas.so.12 is not found\n")
