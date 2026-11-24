@@ -26,14 +26,20 @@ def split(s):
     s = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", norm(s))
     return [t.lstrip("0") or "0" if t.isdigit() else t for t in re.findall(r"\d+|[^\W\d_]+", s)]
 
-def page(url):
+def fetch(url, secs=25):
     p = urllib.parse.urlsplit(url); host = p.netloc if p.netloc.isascii() else p.netloc.encode("idna").decode()
     url = urllib.parse.urlunsplit(p._replace(netloc=host, path=urllib.parse.quote(p.path, safe="%/:@!$&'()*+,;=~"),
                                              query=urllib.parse.quote(p.query, safe="%/:?@!$&'()*+,;=~[]"), fragment=""))
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; plutarch)"})
-    with urllib.request.urlopen(req, timeout=25) as r: t = r.read(4_000_000).decode(r.headers.get_content_charset() or "utf8", "replace")
+    with urllib.request.urlopen(req, timeout=secs) as r: return r.read(4_000_000).decode(r.headers.get_content_charset() or "utf8", "replace")
+
+def plain(t):
     t = re.sub(r"(?is)<(script|style)\b.*?</\1>|<sup\b[^>]*reference.*?</sup>", " ", t)      # a footnote number is not a date
     return html.unescape(re.sub(r"<[^>]+>", " ", t))
+
+def page(url): return plain(fetch(url))
+
+def plainly(t): return " ".join(re.findall(r"\w+", t.lower()))
 
 def same(u1, u2):
     def plain(u):

@@ -51,7 +51,7 @@ and drawing.
 plutarch/              the skill: install this folder
   SKILL.md             a short loop: run next.py, do what it prints, repeat until DONE
   references/          steps · decisions · craft · finding audio · voices, music and SFX · film.json fields
-  scripts/             next (what to do now) · film (edit film.json) · facts (check story.md) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
+  scripts/             next (what to do now) · film (edit film.json) · find_facts (facts that are on two pages) · facts (check story.md) · setup · find_audio · transcribe · clip · narrate · plan · score · mix · render · check
   templates/           film.json (placeholders only) · story.md
   fonts/               Antonio, Cormorant Garamond, JetBrains Mono (SIL Open Font License)
 distill/               for testing the skill on a student model with skill-distill (sybil-solutions)
