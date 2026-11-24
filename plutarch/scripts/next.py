@@ -13,12 +13,17 @@ KIT = os.path.dirname(os.path.realpath(__file__))
 QKIT = shlex.quote(KIT)
 TOTAL = 12
 
+CD = ""   # "cd PROJECT && " once inside a project: many agent shells do not keep cd between commands
+
+def here(line):
+    return CD + line if CD and line.startswith(("python3 scripts/", "nohup python3 scripts/", "grep ")) else line
+
 def say(step, title, do, why=None, then="python3 scripts/next.py"):
     print(f"STEP {step} of {TOTAL}: {title}")
     if why: print(f"WHY: {why}")
     print("DO:")
-    for line in do: print("  " + line)
-    if then: print(f"THEN: {then}")
+    for line in do: print("  " + here(line))
+    if then: print(f"THEN: {here(then)}")
     sys.exit(0)
 
 def load(p):
@@ -108,6 +113,7 @@ if not (os.path.exists("film.json") and os.path.isdir("scripts")):
         why="there is no film.json here. If the user named a folder, use that folder instead of ./films/SHORTNAME.")
 
 proj = os.getcwd()
+CD = f"cd {shlex.quote(proj)} && "
 film = load("film.json")
 subject = film.get("subject", "")
 who = subject if subject and "<<" not in subject else "FULL NAME"

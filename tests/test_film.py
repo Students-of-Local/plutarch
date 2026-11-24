@@ -71,7 +71,7 @@ class FilmPy(Project):
         self.ready_for_clips()
         out = self.run_next()
         clip_cmd = next(c for c in self.commands(out) if "film.py clip" in c)
-        self.assertIn("film.py clip start interview", clip_cmd)
+        self.assertIn("&& python3 scripts/film.py clip start interview", clip_cmd)
         for i in range(6):
             src = "interview" if i % 2 else "speech"
             self.film_py("clip", f"c{i}", src, str(10 * i), str(10 * i + 3), f"words {i}", str(1860 + i), "about")
@@ -84,8 +84,10 @@ class FilmPy(Project):
                 "One fact from story.md, max 16 words.": "He was elected in 1860.", "DATE": "1860"}
         for c in self.commands(out):
             if "film.py" not in c: continue
-            args = shlex.split(c, comments=True)[2:]
-            self.film_py(*[fill.get(a, a) for a in args])
+            self.assertTrue(c.startswith("cd "), c)                   # works in a shell that forgets cd
+            for k, v in fill.items(): c = c.replace(f'"{k}"', shlex.quote(v))
+            r = subprocess.run(["bash", "-c", c], cwd=self.tmp, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, c + "\n" + r.stdout + r.stderr)
         self.assertIn("STEP 8 of 12: record the narrator", self.run_next())
         types = [s["type"] for s in self.data()["scenes"]]
         self.assertEqual((types[0], types[-1], types.count("card")), ("title", "end", 6))
