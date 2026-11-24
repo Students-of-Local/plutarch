@@ -132,6 +132,20 @@ class NextPy(Project):
         out = subprocess.run([sys.executable, NEXT, "--wait"], cwd=self.proj, env=env, capture_output=True, text=True).stdout
         self.assertIn("NOT STARTED: nothing is running", out); self.assertIn("nohup python3 scripts/transcribe.py src/speech.mp3", out)
 
+    def test_transcribe_skips_a_missing_file(self):
+        """LFM2.5-24B (2026-11-24) copied the steps.md example src/speech.m4a; one missing file stopped the whole job."""
+        bin_ = os.path.join(self.tmp, "bin"); os.makedirs(bin_)
+        p = os.path.join(bin_, "ffprobe"); open(p, "w").write("#!/bin/sh\nexit 1\n"); os.chmod(p, 0o755)   # CI has no ffmpeg
+        env = dict(os.environ, PYTHONPATH=self.stubs, PATH=bin_ + os.pathsep + os.environ["PATH"])
+        tr = os.path.join(KIT, "transcribe.py")
+        r = subprocess.run([sys.executable, tr, "src/interview.mp3", "src/speech.m4a"], cwd=self.proj, env=env, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1); self.assertIn("none of these files exist", r.stdout + r.stderr)
+        open(os.path.join(self.proj, "src", "interview.mp3"), "wb").close()
+        r = subprocess.run([sys.executable, tr, "src/interview.mp3", "src/speech.m4a"], cwd=self.proj, env=env, capture_output=True, text=True)
+        self.assertIn("SKIP src/speech.m4a: no such file", r.stdout)
+        rest = (r.stdout + r.stderr).split("SKIP src/speech.m4a", 1)[1]
+        self.assertIn("src/interview.mp3", rest); self.assertNotIn("none of these files exist", rest)   # it went on to the file that exists
+
     def test_old_kit_cut_is_redone_after_an_edit(self):
         self.ready_for_clips()
         clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}

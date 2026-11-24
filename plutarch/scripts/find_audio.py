@@ -55,6 +55,9 @@ def cmd_podcast(a):
         print(f"0 podcast episodes found for {a.name!r}.\nFIX: try python3 scripts/find_audio.py archive {shlex.quote(a.name)}"); return
     mins = lambda r: round((r.get("trackTimeMillis") or 0) / 60000)
     rows.sort(key=lambda r: not 5 <= mins(r) <= 90)              # keeps search order; episodes of 5-90 min first
+    long = [r for r in rows if mins(r) > 90]
+    hide = bool(long) and not a.long and len(long) < len(rows)   # a 3-hour file takes 20+ minutes to transcribe
+    if hide: rows = [r for r in rows if r not in long]
     used = {os.path.splitext(f)[0] for f in os.listdir("src")} if os.path.isdir("src") else set()
     for r in rows:
         show, year = r.get("collectionName", "").strip(), (r.get("releaseDate") or "")[:4]
@@ -64,7 +67,8 @@ def cmd_podcast(a):
         print(f"{(r.get('releaseDate') or '')[:10]} | {mins(r)} min | {show[:32]} | {r.get('trackName', '')[:70]}")
         credit = f" --credit {shlex.quote(f'{show} ({year})')}" if show and year.isdigit() else ""
         print(f"  python3 scripts/find_audio.py get {shlex.quote(r['episodeUrl'])} --name {name}{credit}")
-    print(f"\n{len(rows)} episodes. Pick one where {a.name} is the guest, under 90 minutes if you can "
+    hidden = f" {len(long)} episode(s) over 90 minutes hidden (add --long to see them)." if hide else ""
+    print(f"\n{len(rows)} episodes.{hidden} Pick one where {a.name} is the guest "
           "(transcribing takes about 1 minute per 10 minutes of audio).\nNext: run that episode's find_audio.py get line.")
 
 def cmd_episodes(a):
@@ -146,7 +150,7 @@ def cmd_get(a):
 
 ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
 p = sub.add_parser("web"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_web)
-p = sub.add_parser("podcast"); p.add_argument("name"); p.add_argument("--shows", action="store_true"); p.add_argument("-n", type=int, default=10); p.set_defaults(fn=cmd_podcast)
+p = sub.add_parser("podcast"); p.add_argument("name"); p.add_argument("--shows", action="store_true"); p.add_argument("--long", action="store_true"); p.add_argument("-n", type=int, default=10); p.set_defaults(fn=cmd_podcast)
 p = sub.add_parser("episodes"); p.add_argument("feed"); p.add_argument("--grep"); p.add_argument("-n", type=int, default=15); p.set_defaults(fn=cmd_episodes)
 p = sub.add_parser("yt"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_yt)
 p = sub.add_parser("subs"); p.add_argument("url"); p.set_defaults(fn=cmd_subs)

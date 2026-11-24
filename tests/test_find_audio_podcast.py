@@ -37,10 +37,14 @@ class Podcast(unittest.TestCase):
     def test_episodes_come_with_runnable_get_lines(self):
         urls = []
         ns = load("slug", "cmd_podcast", http=lambda u, **k: (urls.append(u), json.dumps(REPLY).encode())[1])
-        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10)
+        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10, long=False)
         self.assertIn("entity=podcastEpisode", urls[0])
         gets = [l.strip() for l in out.splitlines() if "find_audio.py get" in l and l.startswith("  ")]
-        self.assertEqual(len(gets), 2, out)                                  # the result with no audio URL is skipped
+        self.assertEqual(len(gets), 1, out)                                  # no audio URL: skipped; 207 minutes: hidden
+        self.assertIn("1 episode(s) over 90 minutes hidden (add --long", out)
+        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10, long=True)
+        gets = [l.strip() for l in out.splitlines() if "find_audio.py get" in l and l.startswith("  ")]
+        self.assertEqual(len(gets), 2, out)
         self.assertIn("--name passion-purpose-podcast ", gets[0])                       # the 39-minute episode comes before the 207-minute one
         argv = shlex.split(gets[0])
         self.assertEqual(argv[argv.index("--credit") + 1], "Passion + Purpose Podcast (2026)")
@@ -58,13 +62,13 @@ class Podcast(unittest.TestCase):
         """A credit like "Show ()" would reach the screen; without a year get asks for SHOW (YEAR) instead."""
         reply = {"results": [{"collectionName": "Undated", "trackName": "x", "trackTimeMillis": 600000, "episodeUrl": "https://a.test/u.mp3"}]}
         ns = load("slug", "cmd_podcast", http=lambda u, **k: json.dumps(reply).encode())
-        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10)
+        out = self.run_fn(ns, "cmd_podcast", name="Tim Tebow", shows=False, n=10, long=False)
         self.assertIn("get https://a.test/u.mp3 --name undated\n", out); self.assertNotIn("--credit", out)
 
     def test_nothing_found_points_at_archive(self):
         ns = load("slug", "cmd_podcast", http=lambda u, **k: b'{"results": []}')
         self.assertIn("FIX: try python3 scripts/find_audio.py archive 'Nobody Known'",
-                      self.run_fn(ns, "cmd_podcast", name="Nobody Known", shows=False, n=10))
+                      self.run_fn(ns, "cmd_podcast", name="Nobody Known", shows=False, n=10, long=False))
 
 
 if __name__ == "__main__":
