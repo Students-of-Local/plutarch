@@ -262,7 +262,7 @@ def cmd_show(a):
 EXAMPLES = {"FULL NAME", "TWO WORDS.", "2-3 WORDS.", "up to 7 words", "One fact from story.md, max 16 words.", "SHOW (YEAR)", "URL",
             "the exact words said", "what he was talking about", "Born March 3, 1960 in Ohio", "https://first-source",
             "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT",
-            "the line, respelled", "First words of a narrator line", "The line, respelled the way it sounds."}
+            "the line, respelled", "the words after >>>", "First words of a narrator line", "The line, respelled the way it sounds."}
 for x in sys.argv[2:]:
     if x.strip() in EXAMPLES or "___" in x or placeholder(x):
         die(f"{x!r} is the example text from next.py.", "write the real value for this film there, then run the command again.")
