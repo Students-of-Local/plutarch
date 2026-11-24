@@ -24,7 +24,7 @@ class FindAudio(Project):
     def test_no_match_says_pick_another_show(self):
         out = self.episodes("--grep", "Tebow")
         self.assertIn("none of its 2 episodes mention 'Tebow'", out)
-        self.assertIn("pick a different show", out); self.assertNotIn("Next:", out)
+        self.assertIn("list this person's episodes directly", out); self.assertNotIn("Next:", out)
 
     def test_matches_still_list_and_hint_get(self):
         out = self.episodes("--grep", "keepers")
