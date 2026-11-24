@@ -16,14 +16,18 @@ If a "docs" recipe fails, fall back to the row above it; do not debug it for mor
 | a local TTS server that speaks the OpenAI API (Kokoro-FastAPI, LocalAI, vLLM-Omni ...) | `{"engine": "openai", "base_url": "http://localhost:8880/v1", "model": "kokoro", "voice": "am_michael"}` | mock |
 | an OpenAI key (`OPENAI_API_KEY`) | `{"engine": "openai", "model": "gpt-4o-mini-tts", "voice": "onyx"}` | mock |
 | an ElevenLabs key (`ELEVENLABS_API_KEY`) | `{"engine": "elevenlabs", "voice": "<voice_id>", "model": "eleven_multilingual_v2"}` | docs |
-| any other TTS (Chatterbox, Qwen3-TTS, VoxCPM, Cartesia CLI ...) | `{"engine": "cmd"}`, and in the shell `export PLUTARCH_NARRATOR_CMD='python3 ~/tts.py --text {text} --out {out}'` | run (with a Kokoro wrapper script, when the command was still in film.json) |
+| any other TTS (Chatterbox, Qwen3-TTS, VoxCPM, Cartesia CLI ...) | `{"engine": "cmd"}`, and `PLUTARCH_NARRATOR_CMD='python3 ~/tts.py --text {text} --out {out}' python3 scripts/narrate.py` | run (with a Kokoro wrapper script, when the command was still in film.json) |
 
 - List voices: `python3 scripts/narrate.py --voices`. Good Kokoro documentary voices: `am_michael`, `am_onyx`,
   `bm_george`, `af_heart`. Pick ONE voice for the whole film. After changing it: `narrate.py --redo`.
 - film.json never holds a command or names a key, because a project can come from somebody else. `narrator.cmd` and
   `narrator.api_key_env` are refused. `{text}` and `{out}` go in `PLUTARCH_NARRATOR_CMD` without quotes around them.
-- `OPENAI_API_KEY` is sent only to `https://api.openai.com` and to hosts in `PLUTARCH_TTS_HOSTS`. If the user's own
-  server needs the key: `export PLUTARCH_TTS_HOSTS=myserver:8880` (commas between hosts; the port is optional).
+  The command runs in the home folder, so give it full paths. It must not hand `{text}` to another shell (`ssh`,
+  `eval`, `sh -c`): that shell would parse the line. Set the variables in front of the command, as above, because a
+  fresh shell forgets an `export`, or have the user put them in their shell profile.
+- `OPENAI_API_KEY` is sent only to `https://api.openai.com`. The user's own server's key goes in `PLUTARCH_TTS_KEY` and
+  is sent only to servers in `PLUTARCH_TTS_HOSTS`: `PLUTARCH_TTS_KEY=... PLUTARCH_TTS_HOSTS=https://tts.example`
+  (commas between servers; `https://` unless it says `http://`; a port other than the usual one has to be there).
 - Start a local OpenAI-style Kokoro server (CPU): `docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:latest`.
 - `narrate.py` listens to every line it makes. `MISREAD` means the voice said something else: spell the hard
   word the way it sounds ("Nguyen" → "Win") with the `film.py reword` line it prints, and run it again.

@@ -9,14 +9,16 @@ film.json "narrator" picks the engine. All of these work; the first two need no 
   {"engine": "kokoro", "voice": "am_michael", "speed": 0.95}                      local, CPU, best small model
   {"engine": "piper",  "voice": "en_US-ryan-high"}                                local, CPU, very fast
   {"engine": "openai", "base_url": "http://localhost:8880/v1", "model": "kokoro", "voice": "am_michael"}
-        any server with POST /v1/audio/speech (local ones too). Env OPENAI_API_KEY is sent only to https://api.openai.com
-        and to hosts you list:  export PLUTARCH_TTS_HOSTS=myserver:8880,other.example
+        any server with POST /v1/audio/speech (local ones too). Env OPENAI_API_KEY is sent only to https://api.openai.com.
+        Your own server's key goes in PLUTARCH_TTS_KEY and is sent only to the servers in
+        PLUTARCH_TTS_HOSTS=https://tts.example,http://myserver:8880
   {"engine": "elevenlabs", "voice": "<voice_id>", "model": "eleven_multilingual_v2"}   key from env ELEVENLABS_API_KEY
   {"engine": "cmd"}      any other tool that writes a wav. The command comes only from your shell, never from film.json:
-        export PLUTARCH_NARRATOR_CMD='mytts --text {text} --out {out}'      (no quotes around {text} or {out})
+        PLUTARCH_NARRATOR_CMD='mytts --text {text} --out {out}' python3 scripts/narrate.py
+        No quotes around {text} or {out}. It runs in your home folder. It must not hand {text} to another shell (ssh, eval, sh -c).
 
 The narrator must be a stock voice or the user's own voice. Never a copy of the subject's voice."""
-import sys, os, argparse, json, re, shlex, subprocess, urllib.request, wave
+import sys, os, argparse, hashlib, json, re, shlex, subprocess, urllib.request, wave
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 
@@ -61,13 +63,18 @@ def piper_voice(name):
     p = fetch(base, f"{CACHE}/{name}.onnx"); fetch(base + ".json", f"{CACHE}/{name}.onnx.json")
     return PiperVoice.load(p)
 
-SET_CMD = "\n  export PLUTARCH_NARRATOR_CMD='mytts --text {text} --out {out}'"
+SET_CMD = "\n  PLUTARCH_NARRATOR_CMD='mytts --text {text} --out {out}' python3 scripts/narrate.py"
 
-def key_goes_to(req):
-    """film.json may come from somebody else, so it never decides where the user's key goes."""
-    host = req.host.lower(); bare = re.sub(r":\d*$", "", host)
-    listed = {h.strip().lower() for h in os.environ.get("PLUTARCH_TTS_HOSTS", "").split(",")} - {""}
-    return (req.type == "https" and bare == "api.openai.com") or host in listed or bare in listed
+def origin(url):
+    """scheme://host of an address, without the port that scheme uses anyway."""
+    scheme, host = re.match(r"(?:(https?)://)?([^/]*)", url.strip(), re.I).groups(); scheme = (scheme or "https").lower()
+    return f"{scheme}://" + re.sub(r":443$" if scheme == "https" else r":80$", "", host.lower().rstrip(":"))
+
+def key_for(req):
+    """film.json may come from somebody else, so it never decides where a key goes. Each key has its own servers."""
+    to = origin(f"{req.type}://{req.host}")
+    if to == "https://api.openai.com": return os.environ.get("OPENAI_API_KEY")
+    return os.environ.get("PLUTARCH_TTS_KEY") if to in {origin(h) for h in os.environ.get("PLUTARCH_TTS_HOSTS", "").split(",") if h.strip()} else None
 
 def synth(text, out, n):
     eng = n.get("engine", "kokoro")
@@ -81,8 +88,8 @@ def synth(text, out, n):
             else: v.synthesize(text, wf)
     elif eng == "openai":
         if "api_key_env" in n: die("narrator.api_key_env is refused: a project file must not choose which variable is sent. Delete \"api_key_env\" from "
-                                   "\"narrator\" in film.json. If the user's server needs a key, ask the user to set:\n"
-                                   "  export OPENAI_API_KEY=...\n  export PLUTARCH_TTS_HOSTS=HOST:PORT      (not needed for api.openai.com)")
+                                   "\"narrator\" in film.json. If the user's own server needs a key, ask the user for both and run:\n"
+                                   "  PLUTARCH_TTS_KEY=... PLUTARCH_TTS_HOSTS=https://HOST python3 scripts/narrate.py")
         base = n.get("base_url", "https://api.openai.com/v1").rstrip("/")
         if not re.match(r"https?://[^/]", base, re.I): die(f"narrator.base_url must start with http:// or https://, got {base!r}. Fix it in film.json, or delete it to use OpenAI.")
         body = {"model": n.get("model", "gpt-4o-mini-tts"), "voice": n.get("voice", "onyx"), "input": text, "response_format": "wav"}
@@ -90,14 +97,16 @@ def synth(text, out, n):
         if n.get("instructions"): body["instructions"] = n["instructions"]
         h = {"Content-Type": "application/json"}
         req = urllib.request.Request(base + "/audio/speech", data=json.dumps(body).encode(), headers=h)
-        key = os.environ.get("OPENAI_API_KEY"); send = bool(key) and key_goes_to(req)
-        if send: req.add_unredirected_header("Authorization", "Bearer " + key)      # unredirected: a redirect never carries it
+        key = key_for(req); to = f"{req.type}://{req.host}"      # before urlopen: a proxy changes req.host
+        if key: req.add_unredirected_header("Authorization", "Bearer " + key)      # unredirected: a redirect never carries it
         try:
             with urllib.request.urlopen(req, timeout=300) as r, open(out, "wb") as f: f.write(r.read())
         except urllib.error.HTTPError as e:
-            if e.code != 401 or not key or send: raise
-            die(f"{req.host} asked for a key, and OPENAI_API_KEY goes only to api.openai.com and hosts the user lists. "
-                f"Ask the user if this is their server. Only if they say yes:\n  export PLUTARCH_TTS_HOSTS={shlex.quote(req.host)}")
+            if e.code not in (401, 403) or key: raise
+            hosts = ",".join(filter(None, [os.environ.get("PLUTARCH_TTS_HOSTS"), to]))
+            die("OpenAI wants a key: set OPENAI_API_KEY, or use a local engine (kokoro, piper)" if origin(to) == "https://api.openai.com" else
+                f"{to} answered {e.code}, so it may want a key. Ask the user if this is their server and which key it takes. Only if they say yes:\n"
+                f"  PLUTARCH_TTS_KEY=... PLUTARCH_TTS_HOSTS={shlex.quote(hosts)} python3 scripts/narrate.py")
     elif eng == "elevenlabs":
         key = os.environ.get("ELEVENLABS_API_KEY") or die("set ELEVENLABS_API_KEY, or use a local engine (kokoro, piper)")
         if not n.get("voice"): die("narrator.voice must be an ElevenLabs voice_id")
@@ -113,8 +122,11 @@ def synth(text, out, n):
         for m in re.finditer(r"\{(text|out)\}", cmd):
             try: shlex.split(cmd[:m.start()])
             except ValueError: die(f"PLUTARCH_NARRATOR_CMD has {m[0]} inside quotes. Write it without quotes:" + SET_CMD)
-        run = cmd.replace("{text}", '"$PLUTARCH_TEXT"').replace("{out}", shlex.quote(out))      # the line is data in a variable, so the shell never parses it
-        r = subprocess.run(run, shell=True, capture_output=True, text=True, env={**os.environ, "PLUTARCH_TEXT": text})
+        # The line is data in a variable, so this shell never parses it; a leading space keeps "-x" from being an option.
+        # Home folder: a relative path in the command must not reach a file of the project's.
+        run = cmd.replace("{text}", '"$PLUTARCH_TEXT"').replace("{out}", shlex.quote(os.path.abspath(out)))
+        r = subprocess.run(run, shell=True, capture_output=True, text=True, cwd=os.path.expanduser("~"),
+                           env={**os.environ, "PLUTARCH_TEXT": " " + text if text.startswith("-") else text})
         if r.returncode != 0 or not os.path.exists(out): die(f"PLUTARCH_NARRATOR_CMD failed: {(r.stderr or r.stdout)[-300:]}")
     else: die(f"unknown narrator engine '{eng}'. Use kokoro, piper, openai, elevenlabs or cmd.")
 
@@ -135,14 +147,16 @@ if a.voices:
     else: print("See references/voices-music-sfx.md for voice lists of this engine.")
     sys.exit(0)
 cmd = os.environ.get("PLUTARCH_NARRATOR_CMD") if n.get("engine") == "cmd" else None
-tag = json.dumps({**{k: n.get(k) for k in ("engine", "voice", "speed", "model", "base_url")}, "cmd": cmd}, sort_keys=True)
+def made_by(cmd): return json.dumps({**{k: n.get(k) for k in ("engine", "voice", "speed", "model", "base_url")}, "cmd": cmd}, sort_keys=True)
+tag = made_by(cmd and "sha256:" + hashlib.sha256(cmd.encode()).hexdigest())      # hashed: a command may hold a key, and projects get shared
+tags = (tag, made_by(cmd))                                                       # lines made before the hash stay good
 lines = says(film)
 if not lines: die("no {\"say\": \"...\"} items in film.json scenes yet")
 import librosa
 rows = []; bad = 0
 for text in lines:
     nid = say_id(text); wavp = f"narr/{nid}.wav"; js = f"narr/{nid}.json"
-    if a.redo or not (os.path.exists(wavp) and os.path.exists(js) and load_json(js).get("tag") == tag):
+    if a.redo or not (os.path.exists(wavp) and os.path.exists(js) and load_json(js).get("tag") in tags):
         os.makedirs("narr", exist_ok=True)
         raw = f"narr/{nid}.tmp.wav"; synth(text, raw, n)
         x = audio(raw, ch=1)[:, 0]; os.remove(raw)
