@@ -59,6 +59,11 @@ def save_wav(path, x, sr=SR):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     sf.write(path, np.asarray(x, np.float32), sr)
 
+def clip_spec(c):
+    """Fingerprint of the clip fields that change the cut. next.py compares it to find stale clips."""
+    keep = {k: c.get(k) for k in ("src", "in", "out", "text", "live", "isolate")}
+    return hashlib.md5(json.dumps(keep, sort_keys=True).encode()).hexdigest()[:10]
+
 def say_id(text):
     return "n" + hashlib.md5(text.strip().encode("utf8")).hexdigest()[:9]
 
@@ -66,7 +71,8 @@ _models = {}
 def whisper(model="small.en"):
     if model not in _models:
         from faster_whisper import WhisperModel
-        _models[model] = WhisperModel(model, compute_type="int8", cpu_threads=max(2, (os.cpu_count() or 2)))
+        _models[model] = WhisperModel(model, device=os.environ.get("PLUTARCH_DEVICE", "cpu"), compute_type="int8",
+                                      cpu_threads=max(2, (os.cpu_count() or 2)))   # cpu by default: "auto" crashes where an NVIDIA driver exists without CUDA libraries
     return _models[model]
 
 def words_of(x16k, model="small.en", vad=False):
