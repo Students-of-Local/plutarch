@@ -163,6 +163,7 @@ for text in lines:
         e = np.abs(x); thr = 10 ** (-45 / 20) * (e.max() + 1e-9); idx = np.where(e > thr)[0]
         if len(idx) == 0: die(f"the voice engine returned silence for: {text[:60]}")
         x = x[max(0, idx[0] - int(0.04 * SR)):min(len(x), idx[-1] + int(0.14 * SR))]
+        if os.path.exists(js): os.remove(js)      # interrupted here: no json, so the line is made again
         save_wav(wavp, x)
         ws = words_of(librosa.resample(x.astype(np.float32), orig_sr=SR, target_sr=16000), "small.en")
         heard = " ".join(w["w"] for w in ws)
