@@ -43,6 +43,19 @@ class ClipPy(Project):
         self.assertEqual([r[3] for r in rows], ["yes", "NOT CUT", "yes"])
         self.assertIn("NOT CUT: b.", said.getvalue()); self.assertIn("FIX NEEDED: 2/3", said.getvalue())
 
+    def test_a_quote_under_a_second_is_not_cut(self):
+        """qwen3:4b (2026-11-24) kept the 0.74 s quote "Post football?", and check.py heard "list for Bob." in the film."""
+        fn = [f for f in ast.parse(open(CLIP).read()).body if isinstance(f, ast.FunctionDef) and f.name == "long_enough"]
+        said = []
+        def die(msg): said.append(msg); sys.exit(1)
+        ns = {"die": die}
+        exec(compile(ast.Module(fn, []), CLIP, "exec"), ns)
+        with self.assertRaises(SystemExit): ns["long_enough"]("c7", 0.74, False)
+        self.assertTrue(said[0].startswith("clip 'c7': the words last only 0.74 s."), said)
+        self.assertIn("film.py drop clip c7", said[0])
+        ns["long_enough"]("c7", 1.0, False); ns["long_enough"]("c7", 0.74, True)      # a live race call may be short
+        self.assertIn("long_enough(cid, b - a, live)", open(CLIP).read())             # and make_one uses it
+
     def test_find_prints_apostrophes_plainly_and_the_command_runs(self):
         self.ready_for_clips()
         said = "I'm not done, that's $5 and a \"no\" from `him`."

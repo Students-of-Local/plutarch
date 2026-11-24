@@ -214,6 +214,11 @@ def snap_to_sound(sel, x, sr):
                 break
     return moved, noisy
 
+def long_enough(cid, secs, live):
+    if not live and secs < 1.0:
+        die(f"clip '{cid}': the words last only {secs:.2f} s. A quote is 1 to 9 seconds: check.py can't hear a shorter one again in the film. "
+            f"Pick a longer line, or: python3 scripts/film.py drop clip {cid}")
+
 def make_one(cid, film):
     import librosa
     c = film["clips"][cid]
@@ -309,7 +314,7 @@ def make_one(cid, film):
     a = sel[0]["s"] - (0.25 if verified == "pitch" else 0.08); b = sel[-1]["e"] + (0.30 if verified == "pitch" else 0.20)
     if prev_e is not None: a = max(a, (prev_e + sel[0]["s"]) / 2)
     if next_s is not None: b = min(b, (sel[-1]["e"] + next_s) / 2 + 0.03)
-    a = max(0.0, a); b = min(len(st) / SR, b)
+    a = max(0.0, a); b = min(len(st) / SR, b); long_enough(cid, b - a, live)
     for w in sel: w["s"] = round(w["s"] - a, 3); w["e"] = round(w["e"] - a, 3)
     keep = vocals if (c.get("isolate") and vocals is not None) else st
     save_wav(f"clips/{cid}.wav", keep[int(a * SR):int(b * SR)])
