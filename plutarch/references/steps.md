@@ -29,10 +29,10 @@ Done when: the one sentence is written and you have at least 5 facts with two so
 Read `SKILL_DIR/references/finding-audio.md`. Get 2-4 sources into `src/`: one long clean interview, and one
 live moment if it exists.
 ```
-python3 scripts/find_audio.py podcast "<show name>"
-python3 scripts/find_audio.py episodes "<feed url>" --grep "<guest name>"
-python3 scripts/find_audio.py get "<audio or video url>" --name interview
+python3 scripts/find_audio.py podcast "<full name>"
 ```
+It lists podcast episodes with the person, shortest-useful first, each with a ready `find_audio.py get` line.
+Run the get line of one where they are the guest. For any other link: `find_audio.py get "<url>" --name interview`.
 Expect `OK src/interview.mp3 ...` and a `film.py source` command. Write the show or event name and year in place
 of `SHOW (YEAR)` and run it; the first source replaces the template entries.
 
