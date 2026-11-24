@@ -33,7 +33,8 @@ def fetch(url, secs=25):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; plutarch)"})
     end, got = time.time() + 2 * secs, b""                     # the timeout is per read: a page that drips never hits it
     with urllib.request.urlopen(req, timeout=secs) as r:
-        while len(got) < 4_000_000 and time.time() < end:
+        while len(got) < 4_000_000:
+            if time.time() > end: raise TimeoutError("the page was too slow")
             part = r.read1(65536)
             if not part: break
             got += part

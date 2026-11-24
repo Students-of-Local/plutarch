@@ -24,17 +24,21 @@ END = re.compile(r"\b(a|an|the|and|or|of|in|on|at|to|for|with|as|by|from|his|her
 
 PLAIN = {0x2019: "'", 0x201c: '"', 0x201d: '"', 0x2013: "-", 0x2014: " ; "}      # curly quotes and dashes
 # a sentence that needs the one before it. A pronoun is never swapped for the name: "He proposed to her" is not about her.
-LEANS = re.compile(r"^((In|On|By|After|At|During|As|From|Since)\b[^,]*, )?(he|she|it|they|this|these|that|those|his|her|their|its|the (duo|pair|couple|two|group|film|book|album|song))\b"
+LEANS = re.compile(r"^((In|On|By|After|At|During|As|From|Since)\b[^,]*(, \d{4})?(, [^,]*)?, )?(he|she|it|they|this|these|that|those|his|her|their|its|the (duo|pair|couple|two|group|film|book|album|song))\b"
                    r"|\b(this|these|those|also|again|to her|to him|the same|the former|the latter)\b", re.I)
 
 ODD = re.compile(r"^(A |An )?(first|second|third|another)\b|^[A-Z ,]{4,}[;:]|;|^\W|^As a result|:[.\"]*$| - who\b|^[^,]*, the year [^,]*$|^[^,]*, (photographed|pictured|seen|shown)\b", re.I)   # leans on the line before, or a news dateline
 # "won her first title" is not "won her first title since 2017": a sentence with one of these is kept whole or not at all
-RANK = re.compile(r"\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\w+teenth|\w+tieth|\d+(st|nd|rd|th)|last|only|most|least|more|less|half|never|no|not|"
+RANK = re.compile(r"\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\w+teenth|\w+tieth|\d+(st|nd|rd|th)|eleventh|twelfth|hundredth|best|worst|last|only|most|least|more|less|half|never|no|not|"
                   r"(?!(w|gu|prot|requ|inter|cont|hon|for|arr|pri|t|qu|harv|inv|sugg|mod|conqu|n|ch|dig|Budap|Ever)est\b)\w{2,}est)\b", re.I)
-# what must never be cut off: it turns the fact around, or says who claims it
-TURN = re.compile(r"\b(but|until|if|unless|never|however|though|although|according|alleged\w*|reportedly|supposed\w*|possibly|perhaps|apparently|claim\w*|disput\w+|den(y|ied|ies)|doubt\w*|rumou?r\w*|"
-                  r"believed?|argued?|suggest\w*|as \w+( \w+)? (says?|said|put|wrote|tells|told|reports?|reported))\b|^\W*(and )?(not|only|yet)\b", re.I)
-TITLE = {"President", "Justice", "Judge", "Senator", "Mr", "Professor", "Captain", "General", "King", "Queen", "Saint", "And", "The"}
+# Only these clauses may be cut off: where, when, with whom, or what else happened. Anything else may say who claims it.
+TAIL = re.compile(r",? (at|on|from|with|for|after|before|when|where|while|during|because|\w+ing|and (was|had|won|became|led|made|took|went|began|\w+ed))\b")
+# and none of them when it holds a doubt, a speaker or a turn
+TURN = re.compile(r"\b(but|until|if|unless|never|not|only|yet|however|though|although|accord\w+|alleg\w*|report\w*|suppos\w*|possibl\w*|perhaps|maybe|likely|apparent\w*|claim\w*|disput\w+|den(y|ied|ies|ying)|doubt\w*|"
+                  r"rumou?r\w*|belie\w+|argu\w+|suggest\w*|sa(y|ys|id|ying)|writ\w+|wrote|recall\w*|remember\w*|stat(ed|es|ing)|thought|think\w*|consider\w*|reject\w*|myth\w*|legend\w*|fals\w+|hoax\w*|historian\w*|"
+                  r"biographer\w*|scholar\w*|research\w*|accounts?|sources?|t(ell|old|ells|elling)|not(ed|es|ing)|insist\w*|assum\w+|cit(ed|es|ing)|depend\w*|pending|excluding|except\w*|barring|fail\w*|might|may|could|would|"
+                  r"debunk\w*|contest\w*|contradict\w*|question\w*|unproven|uncertain|dubious|citation needed|better source|failed verification|who\?|when\?)", re.I)
+TITLE = {"And", "The"}
 
 class Article(html.parser.HTMLParser):
     """The paragraphs, outside links and birth date of a Wikipedia page."""
@@ -68,7 +72,7 @@ def variants(t, last):
     """The sentence, then shorter forms of it that end at a clause. Never cut before a 'but' or a 'not': that could turn a fact around."""
     w = t.rstrip("."); out = [w]
     for m in reversed(list(re.finditer(r", | (?:after|when|while|where|during|because) | and (?=\w+ed )|; ", w))):
-        if TURN.search(w[m.start():]): continue
+        if not TAIL.match(w[m.start():]) or TURN.search(re.sub(r"\b(May) (?=\d)", " ", w[m.start():])): continue
         v = w[:m.start()].strip(" ,;"); tail = v.rsplit(",", 1)[-1].strip()
         if INTRO.match(v) and ("," not in v or len(tail.split()) < 3 or re.search(r"^\w*( \w+)? ?\b(after|before|when|as)\b", tail) or INTRO.match(tail.capitalize())): continue
         v = re.sub(r",? (and|or)( \w+)?$", "", v)
@@ -89,10 +93,12 @@ def sentences(art, who):
     b = re.fullmatch(r"(\d{4})-(\d\d)-(\d\d)", art.born)
     if b and 1 <= int(b[2]) <= 12: out.append(f"{who} was born on {facts.MONTHS[int(b[2]) - 1].title()} {int(b[3])}, {b[1]}.")
     for p in art.paras:
-        p = re.sub(r"\([^()]*\)|\[[^\]]*\]", " ", p).translate(PLAIN)
-        for s in re.split(r"(?<=[a-z0-9\"][.!?])\s+(?=[A-Z])", ABBR.sub("\\1.\0", re.sub(r"\s+", " ", p))):
+        p = re.sub(r"\([^()]*\)|\[[^\]]*\]", lambda m: " \x01 " if TURN.search(m[0]) else " ", p).translate(PLAIN)      # a bracket with a doubt in it marks its sentence
+        p = re.sub(r"([.!?])\s*\x01", "\x01\\1", p)
+        for s in re.split(r"(?<=[a-z0-9\"\x01 ][.!?])\s+(?=[A-Z])", ABBR.sub("\\1.\0", re.sub(r"\s+", " ", p))):
             s = s.replace("\0", " ")
             s = re.sub(r" ([.,;])", r"\1", s).strip()
+            if "\x01" in s: continue
             if YEAR.search(s) and last in facts.split(s) and about(s, who) and len(s.split()) <= 45 and not LEANS.search(s) and not ODD.search(s): out.append(s)
     return out
 
@@ -100,7 +106,7 @@ def wiki_url(who):
     q = "https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=5&srsearch=" + urllib.parse.quote(who)
     need = {n.lower() for n in facts.split(who) if n.lower() not in facts.SUFFIX and len(n) > 1}
     for r in sorted(json.loads(facts.fetch(q))["query"]["search"], key=lambda r: facts.plainly(r["title"]) != facts.plainly(who)):      # the exact title first
-        if need <= {n.lower() for n in facts.split(r["title"])}: return "https://en.wikipedia.org/wiki/" + urllib.parse.quote(r["title"].replace(" ", "_"))
+        if need <= {n.lower() for n in facts.split(r["title"])}: return "https://en.wikipedia.org/wiki/" + re.sub(r"\.$", "%2E", urllib.parse.quote(r["title"].replace(" ", "_")))
 
 def alike(a, b):
     a, b = set(facts.plainly(a).split()), set(facts.plainly(b).split()); digits = lambda s: {w for w in s if w.isdigit()}
@@ -125,7 +131,7 @@ def find(who, wiki):
     raw = facts.fetch(wiki); text = facts.plain(raw); art = Article(); art.feed(raw); last = last_name(who).lower()
     if facts.missing("", text, who).startswith("it never says '"): return None
     near = searched(who)
-    urls = [u for u in dict.fromkeys(near + art.urls) if SAFE.fullmatch(u) and not SKIP.search(u) and not facts.same(u, wiki)]
+    urls = [u for u in dict.fromkeys(near + art.urls) if SAFE.fullmatch(u) and facts.links(u) == [u] and not SKIP.search(u) and not facts.same(u, wiki)]
     urls = sorted(urls, key=lambda u: (u not in near, last not in u.lower()))[:PAGES // 2] + urls          # pages named after the person first, then the article's order
     urls = list(dict.fromkeys(urls)); old = [u for u in urls if "//web.archive.org/" in u]; late = set(old[ARCHIVED:])
     urls = [u for u in urls if u not in late][:PAGES]; pages, gate, stop = {}, threading.Semaphore(2), time.time() + 75
@@ -143,7 +149,7 @@ def find(who, wiki):
     got, end, over = [], time.time() + 60, died(art) or 9999
     def keep(sent, on):
         for v in variants(sent, last_name(who)):
-            if any(alike(v, g[0]) for g in got) or facts.missing(v, text, who): continue
+            if not about(v, who) or any(alike(v, g[0]) for g in got) or facts.missing(v, text, who): continue
             nums = {n for n in re.findall(r"\d+", v) if len(n) == 4}
             if YEAR.search(v) and int(YEAR.search(v)[0]) > over: continue                  # "In 2006, Disney acquired Pixar" is the company
             u = next((u for u in on if nums <= pages[u][1] and not facts.missing(v, pages[u][0], who)), None)
@@ -172,11 +178,11 @@ def main():
     else:
         print("Reading the Wikipedia article and the pages it links to (about a minute) ...", flush=True)
         try:
-            wiki = given or wiki_url(who)
+            wiki = given or (saved.get("who") == who and saved.get("given")) or wiki_url(who)
             got = find(who, wiki) if wiki else None
         except Exception as e: print(f"ERROR: the search failed ({str(e)[:60]}).\nFIX: run it again when the network works, or search: {search}"); sys.exit(1)
         if got is None: print(f"ERROR: no Wikipedia page for {who!r}.\nFIX: search instead: {search}"); sys.exit(1)
-        os.makedirs("out", exist_ok=True); json.dump({"who": who, "wiki": wiki, "facts": got}, open(FOUND, "w", encoding="utf8"))
+        os.makedirs("out", exist_ok=True); json.dump({"who": who, "wiki": wiki, "given": wiki if given or wiki == saved.get("given") else "", "facts": got}, open(FOUND, "w", encoding="utf8"))
     try: have = {facts.plainly(t) for _, t, _ in facts.rows(open("story.md", encoding="utf8").read())}
     except OSError: have = set()
     new = [g for g in got if facts.plainly(g[0]) not in have and not re.search(r'["`$\\\n]', g[0]) and SAFE.fullmatch(g[1]) and SAFE.fullmatch(g[2])]
