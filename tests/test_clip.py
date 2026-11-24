@@ -37,10 +37,16 @@ class ClipPy(Project):
         cmd = cmd.replace("IN OUT", "12.5 15").replace("YEAR", "2012").replace('"what he was talking about"', '"being cut"')
         bad = subprocess.run(["bash", "-c", cmd.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")], cwd=self.proj, capture_output=True, text=True)
         self.assertEqual(bad.returncode, 1, bad.stdout)          # "the words after >>>" is example text
+        self.assertIn("example text", bad.stdout)
+        good = cmd.replace('"the words after >>>"', '"Then they cut me."')
+        ok = subprocess.run(["bash", "-c", good.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")], cwd=self.proj, capture_output=True, text=True)
+        self.assertEqual(ok.returncode, 0, ok.stdout)              # the printed source key and free key are real
+        self.assertEqual(json.load(open(p))["clips"]["risk"]["src"], "interview")
 
     def test_no_hint_says_to_edit_film_json(self):
         src = open(CLIP).read()
-        for bad in ('Add \\"isolate\\": true', 'add \\"live\\": true', 'change \\"text\\"', 'Copy the in/out', 'add \\"{k}\\" to this clip'):
+        for bad in ('Add \\"isolate\\": true', 'add \\"live\\": true', 'change \\"text\\"', 'Copy the in/out', 'add \\"{k}\\" to this clip',
+                    'Widen in/out."', 'set in/out tightly', 'check in/out."'):
             self.assertFalse(bad in src, bad)
 
     def test_retype_commands_run(self):
@@ -52,7 +58,9 @@ class ClipPy(Project):
         film_py = os.path.join(KIT, "film.py")
         subprocess.run([sys.executable, film_py, "clip", "turn", "interview", "10", "12.5", "I won it", "2007", "the Heisman"], cwd=self.proj, check=True, capture_output=True)
         c = json.load(open(os.path.join(self.proj, "film.json")))["clips"]["turn"]
-        for cmd in (ns["retype"]("turn", c, text="I won the Heisman, didn't I"), ns["retype"]("turn", c, **{"in": 9.0, "out": 13.5})):
+        exec(compile(ast.Module([next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "widened")], []), CLIP, "exec"), ns)
+        self.assertIn(" 9 34 ", ns["widened"]("x", {"src": "s", "in": 10, "out": 33.5, "text": "t", "year": 1, "about": "a"}))   # stays within 25 s
+        for cmd in (ns["retype"]("turn", c, text="I won the Heisman, didn't I"), ns["widened"]("turn", c)):
             r = subprocess.run(["bash", "-c", cmd.replace("python3 scripts/film.py", f"{shlex.quote(sys.executable)} {shlex.quote(film_py)}")],
                                cwd=self.proj, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, cmd + "\n" + r.stdout)
