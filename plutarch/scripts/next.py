@@ -8,6 +8,7 @@
 It only reads files and lists processes. It never changes the film. Finishes with DONE when check.py passed."""
 import os, sys, re, json, glob, hashlib, subprocess, importlib.util, time, shlex
 WAIT = "--wait" in sys.argv
+IDLE_WAIT = False   # set when --wait finds no job running
 
 KIT = os.path.dirname(os.path.realpath(__file__))
 QKIT = shlex.quote(KIT)
@@ -20,6 +21,8 @@ def here(line):
 
 def say(step, title, do, why=None, then="python3 scripts/next.py"):
     print(f"STEP {step} of {TOTAL}: {title}")
+    if IDLE_WAIT and any(l.startswith("nohup ") for l in do):
+        print("NOT STARTED: nothing is running, so --wait had nothing to wait for. Run the nohup line below first, then --wait.")
     if why: print(f"WHY: {why}")
     print("DO:")
     for line in do: print("  " + here(line))
@@ -138,6 +141,7 @@ subject = film.get("subject", "")
 who = subject if subject and "<<" not in subject else "FULL NAME"
 
 jobs = running(proj)
+IDLE_WAIT = WAIT and not jobs
 if jobs and WAIT:
     t0 = time.time()
     while jobs and time.time() - t0 < 100:
@@ -218,7 +222,7 @@ todo = [v["file"] for v in sources.values() if mtime(f"tx/{os.path.splitext(os.p
 if todo:
     say(4, "transcribe " + " and ".join(todo),
         [f"nohup python3 scripts/transcribe.py {' '.join(shlex.quote(f) for f in todo)} > out/tx.log 2>&1 &",
-         "python3 scripts/next.py --wait      # waits while transcribe runs" + (": one command does every file" if len(todo) > 1 else "")],
+         "python3 scripts/next.py --wait      # after the nohup line above: waits while transcribe runs" + (": one command does every file" if len(todo) > 1 else "")],
         then=None, why="you search the transcript for quotes. A 1-hour file takes about 5-10 minutes on a CPU.")
 
 # ---- 5. quotes ----
@@ -255,7 +259,7 @@ stale = [k for k, c in real.items() if cut_is_stale(k, c)]
 if stale:
     say(6, "cut and verify the quotes",
         ["nohup python3 scripts/clip.py make > out/clips.log 2>&1 &",
-         "python3 scripts/next.py --wait      # waits while clips are cut"], then=None,
+         "python3 scripts/next.py --wait      # after the nohup line above: waits while clips are cut"], then=None,
         why="clips not cut yet (or changed since): " + ", ".join(stale))
 unver = [k for k in real if (load(f"clips/{k}.json") or {}).get("verified") == "unverified"]
 if unver:
@@ -353,7 +357,7 @@ if mtime("out/sheet.jpg") < mtime("out/mix.wav"):
 if mtime("out/final.mp4") < max(mtime("out/mix.wav"), mtime("out/plan.json")):
     say(11, "render the film",
         ["nohup python3 scripts/render.py > out/render.log 2>&1 &",
-         "python3 scripts/next.py --wait      # waits while the film renders: about 4 minutes per minute of film"], then=None)
+         "python3 scripts/next.py --wait      # after the nohup line above: waits while the film renders: about 4 minutes per minute of film"], then=None)
 
 # ---- 12. check ----
 if mtime("out/check.txt") < max(mtime("out/final.mp4"), mtime("film.json"), mtime("story.md")):
