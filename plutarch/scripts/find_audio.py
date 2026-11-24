@@ -47,8 +47,8 @@ def cmd_podcast(a):
 def cmd_episodes(a):
     import xml.etree.ElementTree as ET
     root = ET.fromstring(http(a.feed, timeout=60))
-    n = 0
-    for it in root.iter("item"):
+    n = 0; items = list(root.iter("item"))
+    for it in items:
         title = (it.findtext("title") or "").strip()
         desc = it.findtext("description") or ""
         if a.grep and a.grep.lower() not in (title + " " + desc).lower(): continue
@@ -58,6 +58,11 @@ def cmd_episodes(a):
         print(f"{(it.findtext('pubDate') or '')[5:16]} | {title[:70]} | {dur} | {url}" + (f"\n    transcript: {tr.get('url')}" if tr is not None else ""))
         n += 1
         if n >= a.n: break
+    if n == 0:
+        why = f"none of its {len(items)} episodes mention {a.grep!r}" if a.grep and items else "this feed lists no episodes"
+        print(f"0 episodes: {why}. Running this feed again finds the same.\n"
+              f"FIX: pick a different show from: python3 scripts/find_audio.py podcast NAME   (or try: python3 scripts/find_audio.py archive NAME)")
+        return
     print(f"\n{n} episodes. Next: python3 scripts/find_audio.py get \"<audio url>\" --name <short-name>")
 
 def ytdlp(args):
