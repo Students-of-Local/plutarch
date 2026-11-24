@@ -1,5 +1,5 @@
 """A full disk or a failed download leaves film.json, story.md and the source audio as they were."""
-import ast, http.server, json, os, pathlib, resource, shutil, stat, subprocess, sys, threading, unittest, urllib.request
+import ast, http.server, json, os, pathlib, re, resource, shutil, stat, subprocess, sys, threading, unittest, urllib.request
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -88,7 +88,7 @@ class Whole(Project):
 
     def test_a_cut_off_voice_download_writes_nothing(self):
         """No network: urlopen is replaced by a reply that breaks off while it is read."""
-        src = pathlib.Path(KIT, "narrate.py").read_text("utf8"); ns = dict(json=json, os=os, urllib=urllib, die=self.fail, write_file=None)
+        src = pathlib.Path(KIT, "narrate.py").read_text("utf8"); ns = dict(json=json, os=os, re=re, urllib=urllib, die=self.fail, write_file=None)
         f = next(f for f in ast.parse(src).body if isinstance(f, ast.FunctionDef) and f.name == "synth"); exec(compile(ast.Module([f], []), "narrate.py", "exec"), ns)
         out = self.path("narr", "o.wav")
         for eng in ("openai", "elevenlabs"):
