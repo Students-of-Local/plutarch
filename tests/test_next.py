@@ -123,6 +123,15 @@ class NextPy(Project):
                            "speech": {"file": "src/speech.xyz", "credit": "Event (2012)", "url": "https://x.test"}})
         self.assertIn("STEP 4 of 12: transcribe src/interview.mpg and src/speech.xyz", self.run_next())
 
+    def test_wait_before_starting_says_start_it(self):
+        """qwen3:4b (2026-11-24) ran next.py --wait three times without running the nohup line, then gave up."""
+        self.ready_for_clips()
+        os.remove(os.path.join(self.proj, "tx", "speech.json"))
+        self.assertNotIn("NOT STARTED", self.run_next())
+        env = dict(os.environ, PYTHONPATH=self.stubs)
+        out = subprocess.run([sys.executable, NEXT, "--wait"], cwd=self.proj, env=env, capture_output=True, text=True).stdout
+        self.assertIn("NOT STARTED: nothing is running", out); self.assertIn("nohup python3 scripts/transcribe.py src/speech.mp3", out)
+
     def test_old_kit_cut_is_redone_after_an_edit(self):
         self.ready_for_clips()
         clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}
