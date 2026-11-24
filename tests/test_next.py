@@ -10,7 +10,8 @@ NEXT = os.path.join(KIT, "next.py")
 DEPS = ["numpy", "scipy", "soundfile", "pyloudnorm", "librosa", "skia", "PIL", "faster_whisper", "yt_dlp", "kokoro_onnx"]
 
 
-class NextPy(unittest.TestCase):
+class Project(unittest.TestCase):
+    """A film project made from the templates, with stub packages for the kit's dependencies."""
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.stubs = os.path.join(self.tmp, "stubs")
@@ -34,6 +35,22 @@ class NextPy(unittest.TestCase):
     def film(self, **kw):
         p = os.path.join(self.proj, "film.json"); f = json.load(open(p)); f.update(kw); json.dump(f, open(p, "w"))
 
+    def commands(self, out):
+        return [l.strip() for l in out.splitlines() if l.strip().startswith(("python3 ", "nohup ", "cd "))]
+
+    def ready_for_clips(self):
+        """A project whose story, two sources and transcripts are done."""
+        self.film(subject="Abraham Lincoln",
+                  sources={n: {"file": f"src/{n}.mp3", "credit": f"{n} (1860)", "url": "https://x.test"} for n in ("interview", "speech")})
+        p = os.path.join(self.proj, "story.md"); s = open(p).read()
+        s = s.replace('"He/She/They ____________, it cost ____________, and then ____________."', "He rose from a cabin to the presidency, it cost him dearly, and then he won.")
+        open(p, "w").write(s.replace("| 1 | | | |", "\n".join(f"| {i} | f | https://a.test/{i} | https://b.test/{i} |" for i in range(1, 6))))
+        for n in ("interview", "speech"):
+            open(os.path.join(self.proj, "src", n + ".mp3"), "wb").close()
+            with open(os.path.join(self.proj, "tx", n + ".json"), "w") as f: f.write("{}")
+
+
+class NextPy(Project):
     def test_missing_tools_is_step_0(self):
         self.assertIn("STEP 0 of 12: install the tools", self.run_next(stubs=False))
 
@@ -59,9 +76,6 @@ class NextPy(unittest.TestCase):
         for n in ("interview", "speech"): open(os.path.join(self.proj, "tx", n + ".json"), "w").write("{}")
         self.assertIn("STEP 5 of 12: choose 6-10 quotes", self.run_next())
 
-    def commands(self, out):
-        return [l.strip() for l in out.splitlines() if l.strip().startswith(("python3 ", "nohup ", "cd "))]
-
     def test_every_printed_command_is_valid_bash(self):
         empty = os.path.join(self.tmp, "empty"); os.makedirs(empty)
         outs = [self.run_next(), self.run_next(cwd=self.tmp), self.run_next(cwd=empty)]
@@ -76,17 +90,6 @@ class NextPy(unittest.TestCase):
         out = self.run_next(cwd=self.tmp)
         self.assertIn("films/test   subject: Tim Tebow", out)
         self.assertIn("setup.py --init ./films/SHORTNAME", out)
-
-    def ready_for_clips(self):
-        """A project whose story, two sources and transcripts are done."""
-        self.film(subject="Abraham Lincoln",
-                  sources={n: {"file": f"src/{n}.mp3", "credit": f"{n} (1860)", "url": "https://x.test"} for n in ("interview", "speech")})
-        p = os.path.join(self.proj, "story.md"); s = open(p).read()
-        s = s.replace('"He/She/They ____________, it cost ____________, and then ____________."', "He rose from a cabin to the presidency, it cost him dearly, and then he won.")
-        open(p, "w").write(s.replace("| 1 | | | |", "\n".join(f"| {i} | f | https://a.test/{i} | https://b.test/{i} |" for i in range(1, 6))))
-        for n in ("interview", "speech"):
-            open(os.path.join(self.proj, "src", n + ".mp3"), "wb").close()
-            with open(os.path.join(self.proj, "tx", n + ".json"), "w") as f: f.write("{}")
 
     def test_replaced_recording_is_transcribed_again(self):
         self.ready_for_clips()
