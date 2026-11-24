@@ -9,7 +9,7 @@
 `make` only needs ROUGH in/out (within ~1.5 s) plus the words you want ("text"). It snaps the cut to the
 exact word edges for you. Mark noisy recordings (crowds, phones) live with film.py clip KEY --live: the voice is separated
 from the noise and the timing is checked against the pitch of the voice."""
-import sys, os, argparse, difflib, shlex
+import sys, os, re, argparse, difflib, shlex
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 
@@ -57,11 +57,13 @@ def cmd_find(a):
         print(f"no match for {a.phrase!r} in {a.transcript}: nobody says it there.\n"
               "FIX: search a different word (a name, a place, a year), or the other transcript.")
         return
+    top = None
     for score, i, n in cands:
         if score < 0.3: break
         if any(abs(i - j) < 2 for j in seen): continue
         seen.append(i); shown += 1
         s, e = tx[i]["s"], tx[i + n - 1]["e"]
+        if top is None: top = (s, e, ' '.join(x['text'] for x in tx[i:i + n]).strip())
         print(f"\n#{shown}  match {max(0, score) * 100:.0f}%   \"in\": {s:.1f}, \"out\": {e:.1f}")
         if i > 0: print(f"     before: {tx[i - 1]['text'][-90:]}")
         print(f"     >>>     {' '.join(x['text'] for x in tx[i:i + n])}")
@@ -72,8 +74,13 @@ def cmd_find(a):
     stem = os.path.splitext(os.path.basename(a.transcript))[0]
     src = next((k for k, v in film.get("sources", {}).items() if isinstance(v, dict) and os.path.splitext(os.path.basename(str(v.get("file", ""))))[0] == stem), "SOURCE")
     used = [k for k, v in film.get("clips", {}).items() if isinstance(v, dict) and "<<" not in json.dumps(v)]
-    print(f"\nNext: put the one you want in film.json (rough in/out is fine; clip.py make snaps it):\n"
-          f"  python3 scripts/film.py clip {free_key(used)} {shlex.quote(src)} IN OUT \"the words after >>>\" YEAR \"what he was talking about\"")
+    credit = str(film.get("sources", {}).get(src, {}).get("credit", "")) if isinstance(film.get("sources", {}).get(src), dict) else ""
+    year = (re.findall(r"\b(?:1[6-9]|20)\d\d\b", credit) or ["YEAR"])[-1]
+    s, e, words = top
+    print(f"\nNext: to keep #1, run this. Change only the last quoted part to what he was talking about"
+          f"{'' if year != 'YEAR' else ' and YEAR to the year he said it'}.\n"
+          f"For another result, use its \"in\" and \"out\" numbers and its >>> words instead (clip.py make snaps rough numbers).\n"
+          f"  python3 scripts/film.py clip {free_key(used)} {shlex.quote(src)} {s:.1f} {e:.1f} {shlex.quote(words)} {year} \"what he was talking about\"")
 
 def voicing(x, sr):
     """Per-10ms flags: is a steady voice pitch present? Returns (times, flags)."""
