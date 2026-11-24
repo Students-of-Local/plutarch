@@ -7,13 +7,31 @@
   python3 scripts/clip.py show bet                                     # print its words and times
 
 `make` only needs ROUGH in/out (within ~1.5 s) plus the words you want ("text"). It snaps the cut to the
-exact word edges for you. Add "live": true for noisy recordings (crowds, phones): the voice is separated
+exact word edges for you. Mark noisy recordings (crowds, phones) live with film.py clip KEY --live: the voice is separated
 from the noise and the timing is checked against the pitch of the voice."""
-import sys, os, argparse, difflib
+import sys, os, argparse, difflib, shlex
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 
+BEATS = ["start", "risk", "cost", "turn", "payoff", "comeback"]   # same list as film.py and next.py
+EXAMPLE_QUERIES = {"a few words or an idea", "words he said", "a phrase you want"}
+
+def free_key(used):
+    return next((b for b in BEATS + [f"q{n}" for n in range(7, 99)] if b not in used), "q99")
+
+def retype(cid, c, **change):
+    """The film.py command that changes this clip (film.py keeps its --live and --isolate)."""
+    c = dict(c, **change); q = shlex.quote; t = lambda v: v if isinstance(v, str) else f"{float(v):g}"
+    return (f"python3 scripts/film.py clip {cid} {c.get('src')} {t(c.get('in', 0))} {t(c.get('out', 0))} "
+            f"{q(str(c.get('text') or 'the exact words said'))} {c.get('year') or 'YEAR'} {q(str(c.get('about') or 'what he was talking about'))}")
+
+def widened(cid, c):
+    i = max(0.0, float(c["in"]) - 1); return retype(cid, c, **{"in": i, "out": min(float(c["out"]) + 1, i + 25)})
+
 def cmd_find(a):
+    if a.phrase.strip().lower() in EXAMPLE_QUERIES:
+        die(f"{a.phrase!r} is the example search. Search for words the person really said: a name, a place, "
+            "or a word from your story.md facts, like \"Heisman\" or \"cut\".")
     tx = load_json(a.transcript)["segments"]
     q = [norm_word(w) for w in a.phrase.split() if norm_word(w)]
     if not q: die("empty phrase")
@@ -37,7 +55,13 @@ def cmd_find(a):
         print(f"     >>>     {' '.join(x['text'] for x in tx[i:i + n])}")
         if i + n < len(tx): print(f"     after:  {tx[i + n]['text'][:90]}")
         if shown >= a.n: break
-    print("\nCopy the in/out of the one you want into film.json under \"clips\". Rough is fine; make snaps it.")
+    try: film = json.load(open("film.json", encoding="utf8"))
+    except FileNotFoundError: film = {}
+    stem = os.path.splitext(os.path.basename(a.transcript))[0]
+    src = next((k for k, v in film.get("sources", {}).items() if isinstance(v, dict) and os.path.splitext(os.path.basename(str(v.get("file", ""))))[0] == stem), "SOURCE")
+    used = [k for k, v in film.get("clips", {}).items() if isinstance(v, dict) and "<<" not in json.dumps(v)]
+    print(f"\nNext: put the one you want in film.json (rough in/out is fine; clip.py make snaps it):\n"
+          f"  python3 scripts/film.py clip {free_key(used)} {shlex.quote(src)} IN OUT \"the words after >>>\" YEAR \"what he was talking about\"")
 
 def voicing(x, sr):
     """Per-10ms flags: is a steady voice pitch present? Returns (times, flags)."""
@@ -226,13 +250,13 @@ def make_one(cid, film):
                     if len(df) >= 3 and len(off) >= 2 and len(off) / len(df) >= 0.25: conflict = float(max(off))
             if sel and conflict:
                 notes.append(f"NOT VERIFIED: two timing methods disagree by up to {conflict:.1f} s on this clip, so its captions cannot be trusted. "
-                             "If this is not a crowd or phone recording, remove \"live\" and run make again. Otherwise set in/out tightly around the sentence, or drop the quote.")
+                             f"If this is not a crowd or phone recording: python3 scripts/film.py clip {cid} --no-live, and run make again. Otherwise set IN and OUT tightly around the sentence (clip.py find shows them):  " + retype(cid, c, **{"in": "IN", "out": "OUT"}) + f"   or drop the quote: python3 scripts/film.py drop clip {cid}")
             elif sel:
                 verified = "pitch"
                 notes.append(f"voice starts at {onset + w0:.2f} s (pitch); every word of \"text\" was placed by forced alignment.")
             else:
                 sel = None; notes.append("forced alignment unavailable (needs torch + torchaudio); fell back to plain speech recognition.")
-        else: notes.append("no steady voice pitch found in this window; check in/out.")
+        else: notes.append("no steady voice pitch found in this window. Find the sentence again (clip.py find) and set IN and OUT:  " + retype(cid, c, **{"in": "IN", "out": "OUT"}))
     if sel is None:
         words = heard(vocals if vocals is not None else st)
         if not words: die(f"clip '{cid}': no speech heard between {w0:.1f} and {w1:.1f} s of {src}. Check in/out with clip.py find.")
@@ -240,11 +264,12 @@ def make_one(cid, film):
             span, cover = best_span(words, want)
             if span is None or cover < 0.85:
                 die(f"clip '{cid}': could not find all of \"{want[:70]}\" near {c['in']}-{c['out']} s.\n       Heard there: \"{' '.join(w['w'] for w in words)[:200]}\"\n"
-                    f"       Fix in/out (clip.py find), or change \"text\" to exactly what is said" + ("." if live else ", or add \"live\": true if the recording is noisy."))
+                    f"       Fix in/out (clip.py find), or give the exact words said there:  " + retype(cid, c, text="the exact words said") +
+                    ("" if live else f"\n       If the recording is noisy (crowd, phone):  python3 scripts/film.py clip {cid} --live"))
             i, j = span
         else:
             inside = [k for k, w in enumerate(words) if w["s"] + w0 >= c["in"] - 0.15 and w["e"] + w0 <= c["out"] + 0.15]
-            if not inside: die(f"clip '{cid}': no whole words between in and out. Widen in/out.")
+            if not inside: die(f"clip '{cid}': no whole words between in and out. Widen the cut:  " + widened(cid, c))
             i, j = inside[0], inside[-1]
         sel = [dict(w) for w in words[i:j + 1]]
         mv, _ = snap_to_sound(sel, (vocals if vocals is not None else st).mean(1), SR)
@@ -253,12 +278,14 @@ def make_one(cid, film):
             hn = [norm_word(w["w"]) for w in sel]; wn = [norm_word(x) for x in want.split()]
             miss = [want.split()[k] for tag, a1, a2, _, _ in difflib.SequenceMatcher(None, wn, hn).get_opcodes() if tag in ("delete", "replace") for k in range(a1, a2)]
             if miss: notes.append(f"NOT IN THE CUT: \"{' '.join(miss)}\" (from your \"text\") was not heard, so the film will play and show only the words in the \"heard\" column. "
-                                  "If the quote still makes sense, change \"text\" to the heard words. If not, move \"in\" 1 s earlier or \"out\" 1 s later and run make again, or pick another quote.")
+                                  "If the quote still makes sense, use the heard words:\n    " + retype(cid, c, text=" ".join(w["w"] for w in sel)) +
+                                  "\n  If not, widen the cut by 1 s and run make again, or pick another quote:\n    " +
+                                  widened(cid, c))
         if vocals is not None and not c.get("isolate"):     # how loud is everything that is NOT the voice, while he speaks?
             i0, i1 = int(sel[0]["s"] * SR), int(sel[-1]["e"] * SR); n_ = min(len(st), len(vocals)); i1 = min(i1, n_)
             rv = np.sqrt((vocals[i0:i1] ** 2).mean()) + 1e-9; rr = np.sqrt(((st[i0:i1] - vocals[i0:i1]) ** 2).mean()) + 1e-9
             if 20 * np.log10(rr / rv) > -15:
-                notes.append("there is music or noise under this voice. Add \"isolate\": true to this clip to use the cleaned voice in the film.")
+                notes.append(f"there is music or noise under this voice. Use the cleaned voice in the film:  python3 scripts/film.py clip {cid} --isolate")
         prev_e = words[i - 1]["e"] if i > 0 else None; next_s = words[j + 1]["s"] if j + 1 < len(words) else None
     a = sel[0]["s"] - (0.25 if verified == "pitch" else 0.08); b = sel[-1]["e"] + (0.30 if verified == "pitch" else 0.20)
     if prev_e is not None: a = max(a, (prev_e + sel[0]["s"]) / 2)
@@ -278,9 +305,9 @@ def make_one(cid, film):
         verified = "asr" if (len(low) <= max(1, len(sel) // 4) and sim >= 0.8) else "unverified"
     if verified == "unverified" and not conflict:
         notes.append("NOT VERIFIED: you cannot listen, so either pick a cleaner recording of this line, "
-                     "or add \"live\": true and the exact \"text\" to this clip and run make again.")
-    for k in ("year", "about"):
-        if not c.get(k): notes.append(f"add \"{k}\" to this clip (when / what he was talking about). check.py fails without it.")
+                     f"or mark it live (python3 scripts/film.py clip {cid} --live), check its exact words, and run make again.")
+    gone = [k for k in ("year", "about") if not c.get(k)]
+    if gone: notes.append(f"this clip has no {' or '.join(gone)} (when / what he was talking about), and check.py fails without it:  " + retype(cid, c))
     save_json(f"clips/{cid}.json", {"id": cid, "src": c["src"], "in_exact": round(w0 + a, 3), "out_exact": round(w0 + b, 3),
               "dur": round(b - a, 3), "heard": heard_text, "wanted": want, "similarity": round(sim, 2), "live": live,
               "verified": verified, "low_confidence": low, "words": sel, "phrases": phr, "spec": clip_spec(c)})
