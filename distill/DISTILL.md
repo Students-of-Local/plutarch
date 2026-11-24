@@ -1,4 +1,4 @@
-# skill-distill run: plutarch — teacher handoff
+# skill-distill run: plutarch, teacher handoff
 
 This folder is the teacher's half of a `skill-distill` run (sybil-solutions/skill-distill, method at commit 4c3b307).
 The skill itself is `../plutarch/`. Before a run, put the original request in `prompt.md` here

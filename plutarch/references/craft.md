@@ -1,4 +1,4 @@
-# Craft — why these films work, and how to decide
+# Craft: why these films work, and how to decide
 
 Read this at step 1 (story) and step 5 (writing scenes). The scripts handle timing, sound and drawing.
 **You** handle the four things below. A film that passes `check.py` but ignores this page is correct and dull.
