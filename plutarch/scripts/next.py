@@ -54,6 +54,22 @@ def spec(c):
     keep = {k: c.get(k) for k in ("src", "in", "out", "text", "lines", "live", "isolate")}
     return hashlib.md5(json.dumps(keep, sort_keys=True).encode()).hexdigest()[:10]
 
+CUE_SKIP = set("about after again also back been before being born came come could down during each first from have into just last "
+               "many more most much only other over same since some such than that their them then there these they this those "
+               "through time under very were what when where which while will with would year years university college school "
+               "league team career became played founded".split())
+
+def search_cues(facts, who):
+    """Words to search transcripts for, taken from the story.md facts: one telling word per fact, then common story words."""
+    skip = CUE_SKIP | {w.lower() for w in who.split()}
+    out = []
+    for row in facts:
+        cells = row.split("|"); text = cells[2] if len(cells) > 3 else ""
+        ws = [w.strip("'-") for w in re.findall(r"[A-Za-z][A-Za-z'-]{3,}", text) if w.lower().strip("'-") not in skip]
+        ws.sort(key=lambda w: (not w[0].isupper(), -len(w)))          # names and places first, then long words
+        if ws and ws[0].lower() not in {c.lower() for c in out}: out.append(ws[0])
+    return (out + [w for w in ("I remember", "the hardest", "never") if w not in out])[:6]
+
 def say_id(text): return "n" + hashlib.md5(text.strip().encode("utf8")).hexdigest()[:9]
 
 def running(proj):
@@ -228,10 +244,11 @@ clips = film.get("clips", {})
 real = {k: c for k, c in clips.items() if not holders(c) and c.get("out", 0) > c.get("in", 0)}
 tx = sorted(glob.glob("tx/*.json"))
 if holders(clips) or len(real) < 6:
+    cues = search_cues(facts, who)
+    finds = [f'python3 scripts/clip.py find {tx[i % len(tx)] if tx else "tx/interview.json"} {shlex.quote(w)}' for i, w in enumerate(cues)]
     say(5, "choose 6-10 quotes and put them in film.json \"clips\"",
-        [f'python3 scripts/clip.py find {tx[0] if tx else "tx/interview.json"} "a few words or an idea"',
-         "  -> each result shows   \"in\": 560.9, \"out\": 562.3   and the sentence that was said",
-         "Search for ideas from story.md: the start, the risk, the cost, the turn, the comeback.",
+        finds + ["  -> each result shows   \"in\": 560.9, \"out\": 562.3   and the sentence that was said",
+         "Run each search above on every transcript (" + ", ".join(tx) + "). Then try your own: a name, a place, a year, a feeling.",
          f'python3 scripts/film.py clip {next(b for b in ["start", "risk", "cost", "turn", "payoff", "comeback"] + [f"q{n}" for n in range(7, 99)] if b not in real)} '
          f'{(next((k for k, v in sources.items() if not holders(v)), "interview"))} IN OUT "the exact words said" YEAR "what he was talking about"',
          "  -> one film.py clip per quote: a key no other clip uses (the one above is free), a source key, IN and OUT from the",

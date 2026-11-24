@@ -33,6 +33,9 @@ def widened(cid, c):
     i = max(0.0, float(c["in"]) - 1); return retype(cid, c, **{"in": i, "out": min(float(c["out"]) + 1, i + 25)})
 
 def cmd_find(a):
+    if a.phrase.split() and set(a.phrase.lower().replace("the ", " ").split()) <= set(BEATS):
+        die(f"{a.phrase!r} is a beat name (a clip key), not words anyone said. Search for a word from your story.md "
+            "facts: a name, a place, a year. next.py step 5 prints ready searches.")
     if a.phrase.strip().lower() in EXAMPLE_QUERIES:
         die(f"{a.phrase!r} is the example search. Search for words the person really said: a name, a place, "
             "or a word from your story.md facts, like \"Heisman\" or \"cut\".")
@@ -50,7 +53,12 @@ def cmd_find(a):
             score = hit / len(q) - 0.03 * n - 0.002 * max(0, len(words) - len(q))
             cands.append((score, i, n))
     cands.sort(reverse=True); seen = []; shown = 0
+    if not cands or cands[0][0] < 0.3:
+        print(f"no match for {a.phrase!r} in {a.transcript}: nobody says it there.\n"
+              "FIX: search a different word (a name, a place, a year), or the other transcript.")
+        return
     for score, i, n in cands:
+        if score < 0.3: break
         if any(abs(i - j) < 2 for j in seen): continue
         seen.append(i); shown += 1
         s, e = tx[i]["s"], tx[i + n - 1]["e"]
