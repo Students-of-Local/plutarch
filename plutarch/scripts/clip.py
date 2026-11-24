@@ -336,13 +336,18 @@ def cmd_make(a):
     film = load_film(only=("sources", "clips"))
     ids = a.ids or list(film.get("clips", {}))
     if not ids: die("film.json has no \"clips\" yet")
-    rows = []; bad = 0
+    rows = []; lost = []; bad = 0
     for cid in ids:
         if cid not in film["clips"]: die(f"no clip named '{cid}' in film.json")
-        row, notes = make_one(cid, film); rows.append(row)
+        try: row, notes = make_one(cid, film)
+        except SystemExit:                                     # make_one printed its ERROR line; cut the other clips anyway
+            lost.append(cid); rows.append([cid, "-", "-", "NOT CUT", "-"]); continue
+        rows.append(row)
         for n in notes: print(f"  [{cid}] {n}")
         bad += row[3] == "unverified"
     table(rows, ["clip", "exact in-out (s)", "length", "verified", "heard"])
+    if lost: print(f"\nNOT CUT: {', '.join(lost)}. Running make again gives the same result until that quote changes. Next: python3 scripts/next.py")
+    bad += len(lost)
     print(f"\n{'OK' if not bad else 'FIX NEEDED'}: {len(rows) - bad}/{len(rows)} clips verified. Captions use the \"heard\" words. "
           f"If a heard word is wrong, python3 scripts/clip.py show KEY prints the command that fixes it.")
     sys.exit(1 if bad else 0)

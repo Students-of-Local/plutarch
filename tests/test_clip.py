@@ -2,7 +2,7 @@
 
 qwen3:4b (2026-11-24) searched for the example phrase itself, then read "Copy the in/out ... into
 film.json" after every search."""
-import ast, json, os, re, shlex, subprocess, sys, unittest
+import ast, contextlib, io, json, os, re, shlex, subprocess, sys, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_next import Project, KIT
@@ -23,6 +23,25 @@ class ClipPy(Project):
         r = self.clip_py("find", "tx/interview.json", "a few words or an idea")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("example search", r.stdout)
+
+    def test_one_bad_quote_does_not_stop_the_cut(self):
+        """The clips after a failed one are still cut, and the job still exits 1."""
+        fn = next(f for f in ast.parse(open(CLIP).read()).body if isinstance(f, ast.FunctionDef) and f.name == "cmd_make")
+        made = []
+        def make_one(cid, film):
+            made.append(cid)
+            if cid == "b": sys.exit(1)
+            return [cid, "1-2", "1 s", "yes", "x"], []
+        rows = []
+        ns = {"sys": sys, "make_one": make_one, "load_film": lambda only: {"clips": {"a": {}, "b": {}, "c": {}}},
+              "table": lambda r, h: rows.extend(r), "die": lambda m: self.fail(m)}
+        exec(compile(ast.Module([fn], []), CLIP, "exec"), ns)
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said), self.assertRaises(SystemExit) as end:
+            ns["cmd_make"](type("A", (), {"ids": []}))
+        self.assertEqual((made, end.exception.code), (["a", "b", "c"], 1))
+        self.assertEqual([r[3] for r in rows], ["yes", "NOT CUT", "yes"])
+        self.assertIn("NOT CUT: b.", said.getvalue()); self.assertIn("FIX NEEDED: 2/3", said.getvalue())
 
     def test_find_prints_apostrophes_plainly_and_the_command_runs(self):
         self.ready_for_clips()

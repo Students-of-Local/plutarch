@@ -129,6 +129,7 @@ def cmd_clip(a):
         die(f"no source {src!r}.", "use one of: " + ", ".join(kk for kk, v in f.get("sources", {}).items() if not is_tpl(v)))
     i, o = num(i, "IN"), num(o, "OUT")
     if o <= i: die(f"OUT ({o}) must be after IN ({i}).")
+    if o - i < 1: die(f"this quote is {o - i:.1f} s long.", "a quote is 1-20 seconds and makes sense alone: pick a longer one.")
     if o - i > 25: die(f"this quote is {o - i:.0f} s long.", "a quote is 1-20 seconds: pick one sentence.")
     try: year = int(year)
     except ValueError: die(f"YEAR must be a year like 2010, got {year!r}.")
