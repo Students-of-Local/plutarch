@@ -197,9 +197,10 @@ for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "c
         say("-", f"{what} crashed", [f"out/{log} says: {err}", hint, f"Then delete out/{log} and run python3 scripts/next.py"],
             why="the job stopped with an error, so its output is missing.")
 
+import facts as fact_check
 # ---- 2. story: one sentence + 5 facts with two sources ----
 story = open("story.md", encoding="utf8").read() if os.path.exists("story.md") else ""
-facts = [l for l in story.splitlines() if l.startswith("|") and len(re.findall(r"https?://", l)) >= 2]
+facts = [story.splitlines()[i] for i, _, urls in fact_check.rows(story) if len(urls) >= 2]
 sentence = re.search(r"## The film in one sentence\s*\n(.*)", story)
 sentence_ok = bool(sentence) and "____" not in sentence.group(1) and len(sentence.group(1).strip()) > 20
 if who == "FULL NAME":
@@ -217,8 +218,7 @@ if len(facts) < 5 or not sentence_ok:
     say(2, "story first: one sentence and 5 facts with two sources each", do,
         why=f"story.md has {len(facts)} fact rows with two URLs (need 5)" + ("" if sentence_ok else " and no one-sentence summary yet"))
 
-import facts as fact_check
-todo_facts = fact_check.unchecked(story)
+todo_facts = fact_check.unchecked(story, who)
 if todo_facts:
     say(2, "check the facts against their pages", ["python3 scripts/facts.py", "-> then run each FIX line it prints."],
         why=f"{len(todo_facts)} fact(s) in story.md have not been checked: each must be on both of its pages.")

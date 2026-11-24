@@ -8,12 +8,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_next import Project, KIT
 
 FAR = "filler " * 200
+NAME = "<p>Abraham Lincoln was a lawyer.</p>"
 PAGES = {
-    "/a": "<p>Abraham Lincoln was elected president on November 6, 1860, beating three rivals.</p>",
-    "/b": "<html><script>var x = 1777</script><b>Lincoln</b> won the 1860 election and became the elected president in November 1860 (the 6th). Day 06.",
-    "/noyear": "<p>Lincoln was elected president in November, on day 6 of that month.</p>",
-    "/far": f"<p>Lincoln was elected president in November, on day 6. {FAR} A railway opened in 1860.</p>",
-    "/other": "<p>Stephen Douglas was not elected president on November 6, 1860.</p>",
+    "/a": NAME + "<p>He was elected president on November 6, 1860, beating three rivals.</p>",
+    "/b": "<script>var x = 1777</script><b>Abraham Lincoln</b> won: on November 06, 1860 he was elected president.",
+    "/noyear": NAME + "<p>He was elected president in November, on day 6 of that month.</p>",
+    "/far": NAME + f"<p>He was elected president on November 6. {FAR} A railway opened in 1860.</p>",
+    "/surname": "<p>Robert Lincoln was not elected president on November 6, 1860.</p>",
+    "/noname": "<p>Stephen Douglas was not elected president on November 6, 1860.</p>",
+    "/born": NAME + "<p>He was born 1947 in Australia.</p>",
 }
 FACT = "Elected president on November 6, 1860"
 
@@ -48,34 +51,65 @@ class Facts(Project):
         self.assertEqual(code, 0, out); self.assertGreater(self.rows(), 0)
 
     def test_a_fact_without_numbers(self):
-        code, out = self.fact("/a", "/noyear", "Lincoln was elected president in November")
+        code, out = self.fact("/a", "/noyear", "Elected president in November")
         self.assertEqual(code, 0, out)
 
     def test_refused_and_not_written(self):
-        for page, why in (("/noyear", "it never says 1860"), ("/far", "together"), ("/other", "it never says 'Lincoln'"), ("/gone", "did not open")):
+        for page, why in (("/noyear", "it never says 1860"), ("/far", "together"), ("/noname", "it never says 'Abraham Lincoln'"),
+                          ("/surname", "it never says 'Abraham Lincoln'"), ("/gone", "did not open")):
             code, out = self.fact("/a", page)
             self.assertEqual(code, 1, page + out); self.assertIn(why, out); self.assertIn(self.url + page, out)
-        code, out = self.fact("/a", "/b", "Elected president on November 6, 1777")      # 1777 is only in a script tag
-        self.assertEqual(code, 1, out); self.assertIn("it never says 1777", out)
+        for text, why in (("Elected president on November 6, 1777", "it never says 1777"),      # 1777 is only in a script tag
+                          ("Elected president on November 9, 1860", "it never says 9"),         # a one-digit day by its month
+                          ("Elected governor of Florida on November 6, 1860", "it never says florida"),
+                          ("Won 3 Nobel prizes", "it never says nobel"), ("Elected president on November 60, 1860", "60")):
+            code, out = self.fact("/a", "/b", text)
+            self.assertEqual(code, 1, text + out); self.assertIn(why, out)
+        self.assertEqual(self.fact("/born", "/born", "Born 1947 in Austria")[0], 1)               # Austria is not Australia
+        self.assertIn("same URL", self.fact("/a", "/a")[1])
         self.assertEqual(self.rows(), 0)
 
     def test_off_is_for_a_person_who_checked(self):
         self.assertEqual(self.fact("/noyear", "/gone", off=True)[0], 0)
 
-    def test_hand_written_rows_are_checked_too(self):
-        self.film(subject="Abraham Lincoln"); p = os.path.join(self.proj, "story.md"); s = open(p).read()
+    def story(self, *lines, tail="\n"):
+        self.film(subject="Abraham Lincoln"); p = os.path.join(self.proj, "story.md")
+        self.blank = s = getattr(self, "blank", None) or open(p).read()
         s = s.replace('"He/She/They ____________, it cost ____________, and then ____________."', "He rose from a cabin to the presidency, it cost him, and then he won.")
-        good = f"| {{}} | {FACT} | {self.url}/a | {self.url}/b |"; bad = f"| 5 | Elected president in 1859 | {self.url}/a | {self.url}/b |"
-        open(p, "w").write(s.replace("| 1 | | | |", "\n".join([good.format(i) for i in range(1, 5)] + [bad])))
-        out = self.kit("next.py")[1]
-        self.assertIn("STEP 2 of 12: check the facts against their pages", out); self.assertIn("python3 scripts/facts.py", out)
+        a = s.index("| 1 | | | |")
+        open(p, "w").write(s[:a] + "\n".join(lines).replace("U", self.url) + tail)
+
+    GOOD = [f"| {i} | {FACT} | U/a | U/b |" for i in range(1, 5)]
+
+    def test_hand_written_rows_are_checked_too(self):
+        for bad in ("| 5 | Elected president in 1859 | U/a | U/b |", "| 5. | Elected president in 1859 | U/a | U/b |",
+                    "| Elected president in 1859 | U/a | U/b |",
+                    "| 5 | Elected president in 1859 | [a](U/a) | [b](U/b) |"):
+            for tail in ("\n", ""):                                                                 # the last line of the file
+                self.story(*self.GOOD, bad, tail=tail)
+                self.assertIn("STEP 2 of 12: check the facts against their pages", self.kit("next.py")[1])
+                code, out = self.kit("facts.py")
+                self.assertEqual(code, 1, bad); self.assertIn("NOT ON ITS PAGES: fact 5: Elected president in 1859", out)
+                fix = next(l for l in out.splitlines() if l.startswith("FIX: "))
+                self.assertEqual(self.kit("film.py", *shlex.split(fix, comments=True)[3:])[0], 0)
+                self.assertIn("4 fact rows", self.kit("next.py")[1], bad)      # the good ones stay checked; one more is needed
+                self.assertEqual(self.kit("facts.py")[0], 0)
+
+    def test_the_drop_line_names_the_wrong_row(self):
+        """A one-URL row above a bad row made the number off by one and dropped a good fact."""
+        self.story("| 1 | Elected president in 1860 | U/a |", self.GOOD[1], "| 3 | Elected president in 1859 | U/a | U/b |")
+        out = self.kit("facts.py")[1]
+        fixes = [l for l in out.splitlines() if l.startswith("FIX: ")]
+        self.assertEqual([shlex.split(f, comments=True)[5] for f in fixes], ["3", "1"], out)
+        for f in fixes: self.assertEqual(self.kit("film.py", *shlex.split(f, comments=True)[3:])[0], 0)
+        left = open(os.path.join(self.proj, "story.md")).read()
+        self.assertIn(FACT, left); self.assertNotIn("1859", left)
+
+    def test_a_dead_network_drops_nothing(self):
+        self.story(*[g.replace("U", "http://127.0.0.1:9") for g in self.GOOD])
         code, out = self.kit("facts.py")
-        self.assertEqual(code, 1); self.assertIn("NOT ON ITS PAGES: fact 5: Elected president in 1859", out)
-        fix = next(l for l in out.splitlines() if l.startswith("FIX: "))
-        self.assertIn("film.py drop fact 5", fix)
-        self.assertEqual(self.kit("film.py", *shlex.split(fix, comments=True)[3:])[0], 0)
-        self.assertIn("4 fact rows", self.kit("next.py")[1])        # the good ones stay checked; one more is needed
-        self.assertEqual(self.kit("facts.py")[0], 0)
+        self.assertEqual(code, 1); self.assertIn("NOT CHECKED", out); self.assertIn("again", out)
+        self.assertFalse([l for l in out.splitlines() if l.startswith("FIX: ") and "film.py drop" in l], out)
 
 
 if __name__ == "__main__": unittest.main()
