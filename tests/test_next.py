@@ -168,6 +168,24 @@ class NextPy(Project):
         rest = (r.stdout + r.stderr).split("SKIP src/speech.m4a", 1)[1]
         self.assertIn("src/interview.mp3", rest); self.assertNotIn("none of these files exist", rest)   # it went on to the file that exists
 
+    def test_a_recording_without_sound(self):
+        """LFM2.5-24B (2026-11-24) saved a video-only download as a source; transcribe.py failed on it and next.py called that a crash."""
+        self.ready_for_clips(); os.remove(os.path.join(self.proj, "tx", "speech.json"))
+        with open(os.path.join(self.proj, "out", "tx.log"), "w") as f:
+            f.write("OK wrote tx/interview.json\nERROR: ffmpeg could not read audio from src/speech.mp3: [out#0] Output file does not contain any stream\nError opening output files: Invalid argument\n")
+        out = self.run_next()
+        self.assertIn("replace the recording that has no sound", out); self.assertIn("film.py drop source speech", out); self.assertNotIn("crashed", out)
+        subprocess.run([sys.executable, os.path.join(KIT, "film.py"), "drop", "source", "speech"], cwd=self.proj, capture_output=True)
+        out = self.run_next(); self.assertNotIn("crashed", out); self.assertNotIn("no sound", out)
+        bin_ = os.path.join(self.tmp, "bin"); os.makedirs(bin_); p = os.path.join(bin_, "ffprobe")
+        env = dict(os.environ, PATH=bin_ + os.pathsep + os.environ["PATH"])
+        for said, code, want in (("video", 0, 1), ("video\naudio", 0, 0), ("", 1, 0)):              # no sound, sound, ffprobe failed
+            with open(p, "w") as f: f.write(f"#!/bin/sh\nprintf '{said}'\nexit {code}\n")
+            os.chmod(p, 0o755)
+            r = subprocess.run([sys.executable, os.path.join(KIT, "film.py"), "source", "talk", "src/speech.mp3", "The Talk (1860)", "https://x.test"],
+                               cwd=self.proj, env=env, capture_output=True, text=True)
+            self.assertEqual(r.returncode, want, r.stdout + r.stderr); self.assertEqual("has no sound" in r.stdout + r.stderr, bool(want))
+
     def test_hand_written_keys_are_named(self):
         """LFM2.5-24B (2026-11-24) wrote "facts" and "audio_sources" into film.json with python3 -c; next.py kept saying 0 facts."""
         self.film(subject="Tim Tebow")

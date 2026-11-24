@@ -22,7 +22,7 @@
   python3 scripts/film.py show                                  # what is in film.json now
 
 Scene items play in the order you give --say, --clip and --gap. Run python3 scripts/next.py after changes."""
-import json, os, re, sys
+import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import facts
 from common import write_file
@@ -104,11 +104,17 @@ def cmd_fact(a):
     lines.insert(i, f"| {n} | {text.strip()} | {u1} | {u2} |")
     write_file(STORY, "\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md. " + (f"{5 - n} more to add." if n < 5 else "Next: python3 scripts/next.py"))
 
+def no_audio(path):
+    try: p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", path], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired): return False
+    return p.returncode == 0 and "audio" not in p.stdout      # a file ffprobe can't read is reported by transcribe.py
+
 def cmd_source(a):
     if len(a) != 4: die('use: film.py source KEY FILE "Credit (year)" URL')
     k, path, credit, url = a; f = load()
     if not re.fullmatch(r"[A-Za-z0-9_-]+", k): die(f"key {k!r}: use letters, digits, - and _ only.")
     if not os.path.exists(path): die(f"{path} does not exist.", "download it first with find_audio.py get, then use the file it printed.")
+    if no_audio(path): die(f"{path} has no sound in it (a video-only download).", "get it again with find_audio.py get, which downloads the audio.")
     if "<" in credit or "YEAR" in credit or not re.search(r"\b(1[6-9]|20)\d\d\b", credit):
         die(f"credit {credit!r} needs the real show or event name and its year.", 'e.g. "The Turf podcast (2025)" or "Gettysburg Address (1863)".')
     src = {kk: v for kk, v in f.get("sources", {}).items() if not is_tpl(v)}      # first real source drops the template ones
