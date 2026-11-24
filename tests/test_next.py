@@ -120,6 +120,14 @@ class NextPy(Project):
         open(os.path.join(self.proj, "film.json"), "w").write('{"subject": "A" "title": 1}')
         self.assertIn("not valid JSON", self.run_next())
 
+    def test_skill_folder_is_never_a_film_project(self):
+        skill = os.path.join(self.tmp, "skill"); shutil.copytree(os.path.join(ROOT, "plutarch"), skill, symlinks=True)
+        env = dict(os.environ, PYTHONPATH=self.stubs)
+        r = subprocess.run([sys.executable, os.path.join(skill, "scripts", "next.py")], cwd=skill, env=env, capture_output=True, text=True)
+        self.assertIn("leave the skill folder", r.stdout)
+        r = subprocess.run([sys.executable, os.path.join(skill, "scripts", "setup.py"), "--init", "./films/x"], cwd=skill, env=env, capture_output=True, text=True)
+        self.assertFalse(os.path.exists(os.path.join(skill, "films")), r.stdout + r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
