@@ -134,7 +134,9 @@ class NextPy(Project):
 
     def test_transcribe_skips_a_missing_file(self):
         """LFM2.5-24B (2026-11-24) copied the steps.md example src/speech.m4a; one missing file stopped the whole job."""
-        env = dict(os.environ, PYTHONPATH=self.stubs)
+        bin_ = os.path.join(self.tmp, "bin"); os.makedirs(bin_)
+        p = os.path.join(bin_, "ffprobe"); open(p, "w").write("#!/bin/sh\nexit 1\n"); os.chmod(p, 0o755)   # CI has no ffmpeg
+        env = dict(os.environ, PYTHONPATH=self.stubs, PATH=bin_ + os.pathsep + os.environ["PATH"])
         tr = os.path.join(KIT, "transcribe.py")
         r = subprocess.run([sys.executable, tr, "src/interview.mp3", "src/speech.m4a"], cwd=self.proj, env=env, capture_output=True, text=True)
         self.assertEqual(r.returncode, 1); self.assertIn("none of these files exist", r.stdout + r.stderr)
