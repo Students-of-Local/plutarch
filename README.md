@@ -96,7 +96,7 @@ python3 scripts/render.py --sheet && python3 scripts/render.py && python3 script
 
 | part | default (local, free) | also works |
 |---|---|---|
-| narrator | Kokoro | Piper · any OpenAI-style TTS server (Kokoro-FastAPI, LocalAI, vLLM-Omni) · OpenAI · ElevenLabs · any command (Chatterbox, Qwen3-TTS, VoxCPM ...) |
+| narrator | Kokoro | Piper · any OpenAI-style TTS server (Kokoro-FastAPI, LocalAI, vLLM-Omni) · OpenAI · ElevenLabs · any command set in `PLUTARCH_NARRATOR_CMD` (Chatterbox, Qwen3-TTS, VoxCPM ...) |
 | music | built-in score | local ACE-Step 1.5 server · any generator via a timed prompt (`score.py prompt` + `pick`) |
 | sound effects | made in code | drop in `sfx/impact.wav`, `sfx/riser.wav` |
 | search | your agent's own tools | SearXNG (`SEARXNG_URL`) · Brave (`BRAVE_API_KEY`) · keyless `ddgs` |
