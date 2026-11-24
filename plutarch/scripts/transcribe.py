@@ -24,4 +24,4 @@ while t < total:
 save_json(f"tx/{stem}.json", {"file": a.file, "duration": total, "segments": segs})
 with open(f"tx/{stem}.txt", "w", encoding="utf8") as f:
     for s in segs: f.write(f"[{s['s']:8.2f}] {s['text']}\n")
-print(f"OK wrote tx/{stem}.json and tx/{stem}.txt ({len(segs)} lines). Next: python3 scripts/clip.py find tx/{stem}.json \"a phrase you want\"")
+print(f"OK wrote tx/{stem}.json and tx/{stem}.txt ({len(segs)} lines). Next: python3 scripts/next.py")
