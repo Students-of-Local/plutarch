@@ -90,6 +90,30 @@ class ClipPy(Project):
         self.assertNotIn("lines", json.load(open(os.path.join(self.proj, "film.json")))["clips"]["turn"])
         self.assertNotIn('(same number of words) and run make again', open(CLIP).read())
 
+    def test_beat_names_and_misses_give_no_in_out(self):
+        """qwen3:4b and LFM2.5-24B (2026-11-24) searched "comeback" and "risk", got a 0% hit with in/out, and used it."""
+        self.ready_for_clips()
+        segs = [{"s": 10.0 * i, "e": 10.0 * i + 4, "text": t} for i, t in enumerate(
+            ["I won the Heisman that year.", "We lost the game in overtime.", "My father was a missionary."])]
+        with open(os.path.join(self.proj, "tx", "interview.json"), "w") as f: json.dump({"segments": segs}, f)
+        r = self.clip_py("find", "tx/interview.json", "the comeback")
+        self.assertEqual(r.returncode, 1); self.assertIn("is a beat name", r.stdout)
+        r = self.clip_py("find", "tx/interview.json", "Broncos")
+        self.assertIn("no match for 'Broncos'", r.stdout); self.assertNotIn('"in":', r.stdout); self.assertNotIn("Next:", r.stdout)
+        r = self.clip_py("find", "tx/interview.json", "Heisman")
+        self.assertIn('"in": 0.0, "out": 4.0', r.stdout); self.assertIn("Next:", r.stdout)
+
+    def test_step_5_prints_searches_from_the_facts(self):
+        self.ready_for_clips()
+        p = os.path.join(self.proj, "story.md"); s = open(p).read()
+        s = s.replace("| 1 | f |", "| 1 | Won the Heisman Trophy in 2007 |").replace("| 2 | f |", "| 2 | Abraham Lincoln was drafted by the Denver Broncos |")
+        open(p, "w").write(s)
+        out = self.run_next()
+        self.assertIn('clip.py find tx/interview.json Heisman', out)
+        self.assertIn('clip.py find tx/speech.json Broncos', out)           # second search goes to the second transcript
+        self.assertNotIn("Abraham", out.split("STEP 5")[1].split("THEN")[0].replace("Abraham Lincoln", ""))
+        self.assertNotIn("the start, the risk", out)
+
     def test_free_key_lists_match(self):
         lists = [re.search(r'\["start", "risk", "cost", "turn", "payoff", "comeback"\]', open(os.path.join(KIT, n)).read())
                  for n in ("film.py", "next.py", "clip.py")]
