@@ -85,6 +85,18 @@ def failed(log, done_file):
     errs = [l.strip() for l in txt.splitlines() if l.startswith("ERROR") or re.match(r"^\w*(Error|Exception)\b", l)]
     return (errs[-1] if errs else txt.strip().splitlines()[-1])[:200]
 
+# ---- 0. kit intact? ----
+broken = []
+for p in sorted(glob.glob(os.path.join(KIT, "*.py"))):
+    try: compile(open(p, encoding="utf8").read(), p, "exec")
+    except (SyntaxError, ValueError, UnicodeDecodeError): broken.append(os.path.basename(p))
+if broken:
+    say(0, "the skill is damaged",
+        [f"Someone changed {', '.join(broken)} in {KIT}, and it no longer runs. Never edit, overwrite or replace a file in the skill folder.",
+         "Reinstall the skill: copy a fresh plutarch/ folder from https://github.com/baney75/plutarch over the old one,",
+         "or ask the user to. Your film project folder is safe: do not delete it."],
+        why="a kit script does not compile.", then=f"python3 {QKIT}/next.py")
+
 # ---- 0. tools installed? ----
 need = ["numpy", "scipy", "soundfile", "pyloudnorm", "librosa", "skia", "PIL", "faster_whisper", "yt_dlp", "kokoro_onnx"]
 missing = [m for m in need if importlib.util.find_spec(m) is None]

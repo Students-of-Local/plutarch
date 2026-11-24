@@ -47,7 +47,7 @@ next.py printed (the numbers differ). Read it when a step fails twice.
 - **Narrator lines:** one fact each, at most 16 words, no praise words like "legendary", "iconic", "visionary".
 - **Screen lines:** at most 7 words. Put each quote in the scene for the year it is about.
 - **The person speaks last.** The final speaking item in the film is one of their clips.
-- **Do not edit the scripts.** If a script prints `ERROR` or `FIX`, do what that line says.
+- **Never edit, overwrite or replace a file in `SKILL_DIR`.** If a script prints `ERROR` or `FIX`, do what that line says.
 - **Never print big files.** Do not `cat` anything in `tx/`, `clips/`, `narr/` or `out/*.json`. Use
   `python3 scripts/clip.py find` to search transcripts.
 - **Long jobs run in the background** (transcribe, clip make, render). next.py gives the exact `nohup ... &`

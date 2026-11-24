@@ -144,5 +144,16 @@ class NextPy(Project):
         self.assertNotIn("Replace every value", open(os.path.join(folder, "film.json")).read())
 
 
+    def test_damaged_kit_is_reported(self):
+        """LFM2.5-8B (2026-11-24) overwrote the kit's setup.py with the text "SETUP OK"."""
+        skill = os.path.join(self.tmp, "skill"); shutil.copytree(os.path.join(ROOT, "plutarch"), skill, symlinks=True, ignore=shutil.ignore_patterns("__pycache__"))
+        open(os.path.join(skill, "scripts", "setup.py"), "w").write("SETUP OK\n")
+        env = dict(os.environ, PYTHONPATH=self.stubs)
+        r = subprocess.run([sys.executable, os.path.join(skill, "scripts", "next.py")], cwd=self.proj, env=env, capture_output=True, text=True)
+        self.assertIn("STEP 0 of 12: the skill is damaged", r.stdout, r.stderr)
+        self.assertIn("setup.py", r.stdout)
+        self.assertNotIn("__pycache__", os.listdir(os.path.join(skill, "scripts")))   # the check writes nothing
+
+
 if __name__ == "__main__":
     unittest.main()
