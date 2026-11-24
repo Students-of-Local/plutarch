@@ -25,6 +25,7 @@ Scene items play in the order you give --say, --clip and --gap. Run python3 scri
 import json, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import facts
+from common import write_file
 
 FILM, STORY = "film.json", "story.md"
 USAGE = __doc__.split("\n\n", 1)[1]
@@ -41,7 +42,7 @@ def load():
         die(f"film.json is not valid JSON (line {e.lineno}, column {e.colno}: {e.msg}).", "fix that spot by hand once; after that use film.py.")
 
 def save(f):
-    with open(FILM, "w", encoding="utf8") as fh: json.dump(f, fh, indent=1, ensure_ascii=False); fh.write("\n")
+    write_file(FILM, json.dumps(f, indent=1, ensure_ascii=False) + "\n")
 
 def placeholder(s): return "<<" in s or bool(re.search(r"<[A-Za-z][^<>]*>", s))   # same rule as next.py
 def is_tpl(x): return "<<" in json.dumps(x)
@@ -76,7 +77,7 @@ def cmd_sentence(a):
     if len(a) != 1 or words(a[0]) < 6: die('use: film.py sentence "the whole film in one sentence"')
     s = story(); m = re.search(r"(## The film in one sentence\s*\n)(.*)\n", s)
     if not m: die("story.md has no '## The film in one sentence' heading.")
-    open(STORY, "w", encoding="utf8").write(s[:m.start(2)] + a[0].strip() + s[m.end(2):]); print("OK one sentence written to story.md")
+    write_file(STORY, s[:m.start(2)] + a[0].strip() + s[m.end(2):]); print("OK one sentence written to story.md")
 
 def fact_rows(s):
     return [r[0] for r in facts.rows(s)]      # line numbers
@@ -101,7 +102,7 @@ def cmd_fact(a):
         i += 1
     n = len([l for l in lines[head + 2:i] if l.startswith("|")]) + 1
     lines.insert(i, f"| {n} | {text.strip()} | {u1} | {u2} |")
-    open(STORY, "w", encoding="utf8").write("\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md")
+    write_file(STORY, "\n".join(lines) + "\n"); facts.passed(text, [u1, u2], who); print(f"OK fact {n} added to story.md")
 
 def cmd_source(a):
     if len(a) != 4: die('use: film.py source KEY FILE "Credit (year)" URL')
@@ -240,7 +241,7 @@ def cmd_drop(a):
     if what == "fact":
         s = story(); rows = fact_rows(s); n = int(num(k, "N"))
         if not 1 <= n <= len(rows): die(f"there are {len(rows)} facts.")
-        ls = s.splitlines(); del ls[rows[n - 1]]; open(STORY, "w", encoding="utf8").write("\n".join(ls) + "\n"); print(f"OK fact {n} removed"); return
+        ls = s.splitlines(); del ls[rows[n - 1]]; write_file(STORY, "\n".join(ls) + "\n"); print(f"OK fact {n} removed"); return
     f = load()
     if what == "scene":
         sc = f.get("scenes", []); n = int(num(k, "N"))

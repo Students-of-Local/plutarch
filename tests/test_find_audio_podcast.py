@@ -52,11 +52,13 @@ class Podcast(unittest.TestCase):
         self.assertNotRegex(out, r"FEED_URL|AUDIO_URL|<")
 
     def test_get_with_credit_prints_a_complete_source_command(self):
-        ns = load("cmd_get", http=lambda u, **k: b"x", duration=lambda p: 2340.0, ytdlp=None)
+        wrote = []; length = lambda p: 2340.0
+        ns = load("cmd_get", http=lambda u, **k: b"x", duration=length, ytdlp=None, write_file=lambda *a, **k: wrote.append((a, k)))
         out = self.run_fn(ns, "cmd_get", url="https://a.test/p.mp3", name="passion", start=None, end=None, credit="Passion + Purpose Podcast (2026)")
         cmd = next(l.strip() for l in out.splitlines() if "film.py source" in l)
         self.assertEqual(shlex.split(cmd)[3:], ["passion", "src/passion.mp3", "Passion + Purpose Podcast (2026)", "https://a.test/p.mp3"])
         self.assertNotIn("SHOW (YEAR)", out)
+        self.assertEqual(wrote, [(("src/passion.mp3", b"x"), {"check": length})])      # checked before it replaces anything
 
     def test_no_year_means_no_credit(self):
         """A credit like "Show ()" would reach the screen; without a year get asks for SHOW (YEAR) instead."""
