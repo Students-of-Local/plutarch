@@ -19,6 +19,8 @@ recordings**. A narrator gives the facts. Music, captions and graphics are made 
 
 ## Before you start (rules for the whole job)
 
+- **Not sure what is next?** Run `python3 scripts/next.py` in the project (before a project exists:
+  `python3 <skill>/scripts/next.py`). It reads the folder and prints the one next step with the exact command.
 - **You never type a timestamp into the film.** You write scenes in order; `plan.py` computes every time.
   The only numbers you type are rough `in`/`out` seconds copied from `clip.py find`.
 - **Do not edit the scripts. Do not edit audio or video by hand.** If a script prints `ERROR` or `FIX`, do what

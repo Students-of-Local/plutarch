@@ -283,7 +283,7 @@ def make_one(cid, film):
         if not c.get(k): notes.append(f"add \"{k}\" to this clip (when / what he was talking about). check.py fails without it.")
     save_json(f"clips/{cid}.json", {"id": cid, "src": c["src"], "in_exact": round(w0 + a, 3), "out_exact": round(w0 + b, 3),
               "dur": round(b - a, 3), "heard": heard_text, "wanted": want, "similarity": round(sim, 2), "live": live,
-              "verified": verified, "low_confidence": low, "words": sel, "phrases": phr})
+              "verified": verified, "low_confidence": low, "words": sel, "phrases": phr, "spec": clip_spec(c)})
     return [cid, f"{w0 + a:.2f}-{w0 + b:.2f}", f"{b - a:.2f}s", verified, heard_text[:70]], notes
 
 def cmd_make(a):

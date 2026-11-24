@@ -111,9 +111,9 @@ def cmd_get(a):
         path = os.path.relpath(path)
     if a.start is not None and not a.url.lower().startswith("http"): pass
     d = duration(path)
-    print(f"OK {path}  ({d/60:.1f} min)\nAdd to film.json:  \"sources\": {{ \"{name}\": {{\"file\": \"{path}\", \"credit\": \"<Show or event (year)>\", \"url\": \"{a.url}\"}} }}"
+    print(f"OK {path}  ({d/60:.1f} min)\nAdd to film.json:  \"sources\": {{ \"{name}\": {{\"file\": \"{path}\", \"credit\": \"<<Show or event (year)>>\", \"url\": \"{a.url}\"}} }}"
           + (f"\nNOTE: you downloaded only {a.start}-{a.end} s, so times in this file start at 0, not at {a.start}." if a.start is not None else "")
-          + f"\nNext: python3 scripts/transcribe.py {path}")
+          + f"\nReplace the <<...>> credit with the show or event name and year. Next: python3 scripts/next.py")
 
 ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
 p = sub.add_parser("web"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_web)
