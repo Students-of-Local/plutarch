@@ -38,11 +38,9 @@ write the show or event name and year there first); the first source replaces th
 
 ### 3. Transcribe
 
-```
-nohup python3 scripts/transcribe.py src/interview.mp3 src/speech.m4a > out/tx.log 2>&1 &
-```
-Name every source in one command; it does them one after the other. A 90-minute interview takes
-5-15 minutes on a CPU. Done when the log ends with `OK: 2 file(s) transcribed.`
+Run the `nohup python3 scripts/transcribe.py ...` line that next.py prints. It names every recording that
+still needs a transcript and does them one after the other. A 90-minute interview takes 5-15 minutes on a
+CPU. Done when the log ends with `OK: N file(s) transcribed.`
 
 ### 4. Pick 6-10 quotes and cut them
 
