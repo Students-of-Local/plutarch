@@ -146,6 +146,15 @@ class NextPy(Project):
         rest = (r.stdout + r.stderr).split("SKIP src/speech.m4a", 1)[1]
         self.assertIn("src/interview.mp3", rest); self.assertNotIn("none of these files exist", rest)   # it went on to the file that exists
 
+    def test_hand_written_keys_are_named(self):
+        """LFM2.5-24B (2026-11-24) wrote "facts" and "audio_sources" into film.json with python3 -c; next.py kept saying 0 facts."""
+        self.film(subject="Tim Tebow")
+        self.assertNotIn("NOTE: film.json has keys", self.run_next())
+        self.film(facts=[{"Fact": "x"}], audio_sources=[])
+        out = self.run_next()
+        self.assertIn("NOTE: film.json has keys the kit never reads: audio_sources, facts.", out)
+        self.assertIn("STEP 2 of 12", out)
+
     def test_old_kit_cut_is_redone_after_an_edit(self):
         self.ready_for_clips()
         clips = {f"c{i}": {"src": "interview" if i % 2 else "speech", "in": 10.0 * i, "out": 10.0 * i + 3, "text": f"words {i}", "year": 1860, "about": "x"} for i in range(6)}
