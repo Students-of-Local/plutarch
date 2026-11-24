@@ -6,7 +6,7 @@
 A page passes when it has the subject's full name, and the fact's numbers, its names (places, teams, awards) and half of
 its other words within 12 words of each other. That shows the page says them together. It does not prove the claim: read
 the page."""
-import hashlib, html, json, math, os, re, sys, unicodedata, urllib.request
+import hashlib, html, json, math, os, re, sys, unicodedata, urllib.parse, urllib.request
 
 DONE, NEAR = "out/facts.json", 12
 OFF = os.environ.get("PLUTARCH_FACTS") == "off"      # for a person who read the sources (a book, a paywall); see README
@@ -16,6 +16,7 @@ STOP = set("a about after also an and are as at became become been before being 
 MONTHS = "january february march april may june july august september october november december".split()
 SHORT = {m[:3]: m for m in MONTHS} | {"sept": "september"}
 SPELLED = dict(zip("0123456789", "zero one two three four five six seven eight nine".split()))
+SUFFIX = ("dr", "sir", "jr", "sr", "ii", "iii", "iv")
 NUMBERS = {w: d for d, w in SPELLED.items() if d > "1"}
 
 def norm(s):
@@ -26,14 +27,23 @@ def split(s):
     return [t.lstrip("0") or "0" if t.isdigit() else t for t in re.findall(r"\d+|[^\W\d_]+", s)]
 
 def page(url):
+    p = urllib.parse.urlsplit(url); host = p.netloc if p.netloc.isascii() else p.netloc.encode("idna").decode()
+    url = urllib.parse.urlunsplit(p._replace(netloc=host, path=urllib.parse.quote(p.path, safe="%/:@!$&'()*+,;=~"),
+                                             query=urllib.parse.quote(p.query, safe="%/:?@!$&'()*+,;=~[]"), fragment=""))
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; plutarch)"})
     with urllib.request.urlopen(req, timeout=25) as r: t = r.read(4_000_000).decode(r.headers.get_content_charset() or "utf8", "replace")
     t = re.sub(r"(?is)<(script|style)\b.*?</\1>|<sup\b[^>]*reference.*?</sup>", " ", t)      # a footnote number is not a date
     return html.unescape(re.sub(r"<[^>]+>", " ", t))
 
+def same(u1, u2):
+    def plain(u):
+        p = urllib.parse.urlsplit(u); host = re.sub(r"^(www|m)\.", "", p.netloc.lower()).replace(".m.", ".")
+        return host, p.path.rstrip("/"), p.query
+    return plain(u1) == plain(u2)
+
 def missing(fact, text, who):
     """Why this page text does not back the fact, or None."""
-    toks = [SHORT.get(t.lower(), t.lower()) for t in split(text)]; names = [n.lower() for n in split(who)]
+    toks = [SHORT.get(t.lower(), t.lower()) for t in split(text)]; names = [n.lower() for n in split(who) if n.lower() not in SUFFIX]
     last = [i for i, t in enumerate(toks) if names and t == names[-1]]
     if not names or not any(names[0] in toks[max(0, i - max(3, len(names) - 1)):i + 1] for i in last): return f"it never says '{' '.join(names).title()}'"
     words = split(fact); low = [SHORT.get(w.lower(), w.lower()) if w[0].isupper() else w.lower() for w in words]; nums, ones, proper, main = set(), set(), set(), set()
@@ -43,7 +53,7 @@ def missing(fact, text, who):
             (nums if len(w) > 1 or by_month else ones).add(w)
         elif l in NUMBERS: ones.add(NUMBERS[l])
         elif l in MONTHS and (w[0].isupper() or "".join(words[max(0, i - 1):i] + words[i + 1:i + 2]).isdigit()): proper.add(l)
-        elif l in names or l in STOP: continue
+        elif l in names or l in STOP or l in SUFFIX: continue
         elif i and w[0].isupper(): proper.add(l)
         elif len(l) > 3: main.add(l[:5])
     absent = sorted((nums | proper) - set(toks))
@@ -59,7 +69,7 @@ def missing(fact, text, who):
 CLOSED = (401, 403, 404, 410, 451)
 def problem(fact, urls, who):
     """(why, try again?) when a page does not back the fact, or None."""
-    if len(urls) < 2 or urls[0] == urls[1]: return "it needs two different pages", False
+    if len(urls) < 2 or same(urls[0], urls[1]): return "it needs two different pages", False
     for u in urls[:2]:
         try: why, again = missing(fact, page(u), who), False
         except Exception as e:
