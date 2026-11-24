@@ -285,7 +285,10 @@ EXAMPLES = {"FULL NAME", "TWO WORDS.", "2-3 WORDS.", "up to 7 words", "One fact 
             "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT",
             "the line, respelled", "the words after >>>", "SOURCE", "First words of a narrator line", "The line, respelled the way it sounds.",
             "I was told", "I could not do it"}
+if any(x in ("-h", "--help") for x in sys.argv[1:]): print(USAGE); sys.exit(0)
 for x in sys.argv[2:]:
+    if x.strip() in ("IN", "OUT"):
+        die(f"{x!r} is the example text from next.py.", 'use the two numbers clip.py find printed after "in": and "out":, like 560.9 562.3.')
     if x.strip() in EXAMPLES or "___" in x or placeholder(x):
         die(f"{x!r} is the example text from next.py.", "write the real value for this film there, then run the command again.")
 

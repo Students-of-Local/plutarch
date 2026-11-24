@@ -32,13 +32,14 @@ class ClipPy(Project):
         r = self.clip_py("find", "tx/interview.json", "cut me")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn("Copy the in/out", r.stdout)
-        self.assertIn("python3 scripts/film.py clip risk interview IN OUT", r.stdout)
+        self.assertIn("python3 scripts/film.py clip risk interview 12.5 15.0 'Then they cut me.'", r.stdout)
+        self.assertNotIn(" IN OUT ", r.stdout)                      # a small model copied IN OUT literally
         cmd = next(l.strip() for l in r.stdout.splitlines() if "film.py clip risk" in l)
-        cmd = cmd.replace("IN OUT", "12.5 15").replace("YEAR", "2012").replace('"what he was talking about"', '"being cut"')
+        cmd = cmd.replace("YEAR", "2012")
         bad = subprocess.run(["bash", "-c", cmd.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")], cwd=self.proj, capture_output=True, text=True)
-        self.assertEqual(bad.returncode, 1, bad.stdout)          # "the words after >>>" is example text
+        self.assertEqual(bad.returncode, 1, bad.stdout)          # "what he was talking about" is example text
         self.assertIn("example text", bad.stdout)
-        good = cmd.replace('"the words after >>>"', '"Then they cut me."')
+        good = cmd.replace('"what he was talking about"', '"being cut"')
         ok = subprocess.run(["bash", "-c", good.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")], cwd=self.proj, capture_output=True, text=True)
         self.assertEqual(ok.returncode, 0, ok.stdout)              # the printed source key and free key are real
         self.assertEqual(json.load(open(p))["clips"]["risk"]["src"], "interview")

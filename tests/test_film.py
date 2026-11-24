@@ -27,6 +27,13 @@ class FilmPy(Project):
         self.assertIn("| 5 | Fact 5 in 1860 |", story)
         self.assertIn("STEP 3 of 12", self.run_next())
 
+    def test_help_prints_usage_and_in_out_points_at_find(self):
+        out = self.film_py("clip", "--help")                       # a small model asked for help and got an ERROR
+        self.assertIn("film.py clip start interview 560.9 562.3", out)
+        self.assertNotIn("ERROR", out)
+        out = self.film_py("clip", "start", "interview", "IN", "OUT", "words", "2010", "about", ok=False)
+        self.assertIn('printed after "in": and "out":', out)
+
     def test_refuses_bad_input(self):
         self.film_py("fact", "x", "https://a.test", "https://a.test", ok=False)        # same URL twice
         self.film_py("fact", "x", "a.test", "https://b.test", ok=False)                # not a URL
