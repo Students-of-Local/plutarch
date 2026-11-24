@@ -178,6 +178,17 @@ if jobs:
 
 for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "clip.py make"), ("render.log", "out/final.mp4", "render.py")):
     err = failed(log, out)
+    if err and log == "clips.log":                             # a quote that can't be cut is not a crash
+        txt = open("out/clips.log", encoding="utf8", errors="replace").read()
+        lost = [k for k in dict.fromkeys(re.findall(r"^ERROR: clip '([^']+)'", txt, re.M)) if k in (film.get("clips") or {})]
+        if lost and "Traceback" not in txt:
+            if mtime("film.json") > mtime("out/clips.log"): continue          # it was changed since: cut again
+            why = re.search(rf"^ERROR: clip '{re.escape(lost[0])}': (.*)", txt, re.M).group(1)
+            say(6, "replace the quotes that could not be cut",
+                [f"python3 scripts/film.py drop clip {k}" for k in lost] +
+                ["-> next.py then asks for another quote if you have fewer than 6.",
+                 "To keep one instead, run the film.py clip line out/clips.log prints for it, with words that are really said there."],
+                why=f"clip {lost[0]}: {why[:160]} The same words and times fail again.")
     if err and (log != "tx.log" or not all(os.path.exists("tx/" + os.path.splitext(os.path.basename(v.get("file", "")))[0] + ".json")
                                              for v in (film.get("sources") or {}).values() if isinstance(v, dict))):
         hint = {"tx.log": "If it mentions CUDA, cublas or cudnn: run it again with  PLUTARCH_DEVICE=cpu  in front of the command.",

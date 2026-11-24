@@ -189,6 +189,11 @@ class FilmPy(Project):
         self.assertEqual(self.says(), ["Tebow's two thousand seven season ended with the Heisman."])
 
 
+    def test_a_quote_shorter_than_a_second_is_refused(self):
+        self.ready_for_clips()
+        self.assertIn("0.8 s long", self.film_py("clip", "payoff", "interview", "4007.5", "4008.3", "of the four", "2020", "x", ok=False))
+        self.film_py("clip", "payoff", "interview", "4007", "4008", "it was worth it", "2020", "x")
+
     def test_a_key_holds_one_quote(self):
         """LFM2.5-24B (2026-11-24) typed every quote as key "start", so each one replaced the last."""
         self.ready_for_clips()

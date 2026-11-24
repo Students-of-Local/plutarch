@@ -51,6 +51,26 @@ class Project(unittest.TestCase):
 
 
 class NextPy(Project):
+    def test_a_quote_that_cannot_be_cut_is_not_a_crash(self):
+        """qwen3:4b (2026-11-24) ran clip.py make 16 times on one 0.8 s quote that next.py called a crash."""
+        self.ready_for_clips()
+        p = os.path.join(self.proj, "film.json"); film = json.load(open(p))
+        film["clips"] = {k: {"src": "speech" if k == "turn" else "interview", "in": 10, "out": 12, "text": "x", "year": 1860, "about": "x"}
+                         for k in ("start", "risk", "cost", "turn", "payoff", "comeback", "last")}
+        json.dump(film, open(p, "w")); os.utime(p, (1000, 1000))
+        log = os.path.join(self.proj, "out", "clips.log"); os.makedirs(os.path.dirname(log), exist_ok=True)
+        line = "ERROR: clip 'payoff': could not find all of \"of the four\" near 4007.5-4008.3 s.\n"
+        open(log, "w").write(line)
+        out = self.run_next()
+        self.assertIn("STEP 6 of 12: replace the quotes that could not be cut", out)
+        self.assertIn("python3 scripts/film.py drop clip payoff", out)
+        self.assertNotIn("crashed", out)
+        os.utime(log, (1000, 1000)); os.utime(p, (2000, 2000))     # film.json changed since: the stale log is ignored
+        out = self.run_next()
+        self.assertIn("STEP 6 of 12: cut and verify the quotes", out)
+        open(log, "w").write("Traceback (most recent call last):\n" + line); os.utime(p, (1000, 1000))
+        self.assertIn("clip.py make crashed", self.run_next())      # a real crash is still one
+
     def test_missing_tools_is_step_0(self):
         self.assertIn("STEP 0 of 12: install the tools", self.run_next(stubs=False))
 
