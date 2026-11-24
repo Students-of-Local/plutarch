@@ -27,6 +27,29 @@ class FilmPy(Project):
         self.assertIn("| 5 | Fact 5 in 1860 |", story)
         self.assertIn("STEP 3 of 12", self.run_next())
 
+    def test_the_same_fact_is_refused(self):
+        """LFM2.5-24B (2026-11-24) added one fact three times to reach five rows."""
+        self.film_py("set", "subject", "Abraham Lincoln")
+        self.film_py("fact", "He won in 1860.", "https://a.test/1", "https://b.test/1")
+        out = self.film_py("fact", "He  won in 1860", "https://a.test/2", "https://b.test/2", ok=False)
+        self.assertIn("this is already fact 1", out)
+        self.film_py("fact", "He won in 1864.", "https://a.test/1", "https://b.test/1")
+        self.assertEqual(open(os.path.join(self.proj, "story.md")).read().lower().count("won in 186"), 2)
+
+    def test_the_same_scene_is_refused(self):
+        """qwen3:4b (2026-11-24) added one scene about seven times."""
+        self.ready_for_clips()
+        self.film_py("clip", "c1", "interview", "1", "3", "hello there", "1860", "x")
+        self.film_py("set", "title", "the long road"); self.film_py("scenes", "clear")
+        add = ("scene", "add", "card", "--heading", "1860", "--say", "He won.", "--clip", "c1")
+        self.film_py("scene", "add", "title"); self.film_py(*add)
+        out = self.film_py(*add, ok=False)
+        self.assertIn("scene 2 already plays", out); self.assertIn("film.py drop scene 2", out)
+        self.assertEqual(len(self.data()["scenes"]), 2)
+        self.film_py("scene", "add", "card", "--heading", "1861", "--say", "He left.")   # new items are fine
+        self.film_py("scene", "add", "card", "--heading", "1862"); self.film_py("scene", "add", "card", "--heading", "1863")
+        self.film_py("drop", "scene", "2"); self.film_py(*add)
+
     def test_help_prints_usage_and_in_out_points_at_find(self):
         out = self.film_py("clip", "--help")                       # a small model asked for help and got an ERROR
         self.assertIn("film.py clip start interview 560.9 562.3", out)

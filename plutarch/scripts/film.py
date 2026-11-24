@@ -88,12 +88,16 @@ def cmd_fact(a):
     for u in (u1, u2):
         if not u.startswith(("http://", "https://")): die(f"{u!r} is not a URL.", "copy the full https:// address from the search result.")
     if facts.same(u1, u2): die("the two sources are the same URL.", "each fact needs two different sources.")
+    s = story()
+    plain = lambda t: " ".join(re.findall(r"\w+", t.lower()))
+    for n, (_, old, _) in enumerate(facts.rows(s), 1):
+        if plain(old) == plain(text): die(f"this is already fact {n}.", "add a different fact.")
     who = str(load().get("subject") or "")
     if not facts.OFF:
         if not who or is_tpl(who): die("film.json has no subject yet.", 'python3 scripts/film.py set subject "the person\'s name", then add the fact.')
         bad = facts.problem(text, [u1, u2], who)
         if bad: die(f"this fact is not added. {bad[0]}.", "run it again when the network works. If it fails twice, use another page." if bad[1] else "open the page and use what it says, or use another page. Never guess a date or number.")
-    s = story(); lines = s.splitlines()
+    lines = s.splitlines()
     try: head = next(i for i, l in enumerate(lines) if l.startswith("| # | Fact"))
     except StopIteration: die("story.md has no Facts table.")
     i = head + 2
@@ -225,6 +229,8 @@ def cmd_scene(a):
         if n != 1 or not wordlist: die("a stack needs exactly one --clip and --words \"3 to 6 words he says in that clip\".")
     if typ == "arena": sc.setdefault("reveal", "hits")
     scenes = [s for s in f.get("scenes", []) if not is_tpl(s)]
+    used = next((n for n, s in enumerate(scenes, 1) if items and s.get("items") == items), 0)
+    if used: die(f"scene {used} already plays exactly these --say and --clip items.", f"use other items, or: python3 scripts/film.py drop scene {used}   and add it again.")
     at = sc.pop("_at", None)
     if at is not None: pos = min(max(int(num(at, "--at")), 1), len(scenes) + 1) - 1
     elif typ != "end" and scenes and scenes[-1].get("type") == "end": pos = len(scenes) - 1   # keep the end card last
