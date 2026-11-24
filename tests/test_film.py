@@ -182,5 +182,31 @@ class FilmPy(Project):
         self.assertEqual(self.says(), ["Tebow's two thousand seven season ended with the Heisman."])
 
 
+    def test_a_key_holds_one_quote(self):
+        """LFM2.5-24B (2026-11-24) typed every quote as key "start", so each one replaced the last."""
+        self.ready_for_clips()
+        self.film_py("clip", "start", "interview", "38.61", "45.09", "an honor", "2020", "x", "--live")
+        self.film_py("clip", "start", "interview", "39", "45", "an honor to be here", "2020", "x")       # overlap: a correction
+        self.assertEqual((self.data()["clips"]["start"]["text"], self.data()["clips"]["start"]["live"]), ("an honor to be here", True))
+        out = self.film_py("clip", "start", "interview", "45.09", "49", "this is happening", "2020", "x", ok=False)
+        self.assertIn("film.py clip risk interview 45.09 49", out)
+        self.film_py("clip", "start", "speech", "39", "45", "other source", "2020", "x", ok=False)
+        self.assertEqual(list(self.data()["clips"]), ["start"])
+        self.film_py("clip", "start", "interview", "45.09", "49", "this is happening", "2020", "x", "--replace")
+        self.assertEqual(self.data()["clips"]["start"]["in"], 45.09)
+
+    def test_step_5_command_names_a_free_key_and_refuses_a_verbatim_copy(self):
+        self.ready_for_clips()
+        self.film_py("clip", "start", "interview", "1", "3", "words", "2020", "x")
+        out = self.run_next()
+        cmd = next(c for c in self.commands(out) if "film.py clip " in c)
+        self.assertIn("film.py clip risk interview IN OUT", cmd)
+        self.assertIn("Clips so far: start.", out)
+        before = open(os.path.join(self.proj, "film.json")).read()
+        r = subprocess.run(["bash", "-c", cmd], cwd=self.tmp, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertEqual(open(os.path.join(self.proj, "film.json")).read(), before)
+
+
 if __name__ == "__main__":
     unittest.main()

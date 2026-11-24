@@ -217,11 +217,12 @@ if holders(clips) or len(real) < 6:
         [f'python3 scripts/clip.py find {tx[0] if tx else "tx/interview.json"} "a few words or an idea"',
          "  -> each result shows   \"in\": 560.9, \"out\": 562.3   and the sentence that was said",
          "Search for ideas from story.md: the start, the risk, the cost, the turn, the comeback.",
-         f'python3 scripts/film.py clip start {(next((k for k, v in sources.items() if not holders(v)), "interview"))} 560.9 562.3 "the exact words said" 2010 "what he was talking about"',
-         "  -> one film.py clip per quote: a new KEY (start, risk, cost, turn, payoff...), a source key, IN and OUT from the",
+         f'python3 scripts/film.py clip {next(b for b in ["start", "risk", "cost", "turn", "payoff", "comeback"] + [f"q{n}" for n in range(7, 99)] if b not in real)} '
+         f'{(next((k for k, v in sources.items() if not holders(v)), "interview"))} IN OUT "the exact words said" YEAR "what he was talking about"',
+         "  -> one film.py clip per quote: a key no other clip uses (the one above is free), a source key, IN and OUT from the",
          "     result, the exact words shown after >>>, the year it was said, and what it was about.",
          "     Add --live for a crowd or phone recording. The first film.py clip removes the template clips.",
-         "Use quotes from at least 2 different sources."],
+         "Use quotes from at least 2 different sources." + (f"  Clips so far: {', '.join(real)}." if real else "")],
         why=f"film.json has {len(real)} finished clips (need 6 or more)" + (" and template entries still in \"clips\"" if holders(clips) else ""))
 srcs_used = {c["src"] for c in real.values()}
 if len(srcs_used) < 2:

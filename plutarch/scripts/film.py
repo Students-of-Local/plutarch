@@ -7,6 +7,7 @@
   python3 scripts/film.py source interview src/interview.mp3 "Show Name (2019)" https://where-you-got-it
   python3 scripts/film.py clip start interview 560.9 562.3 "the exact words" 2010 "what he was talking about"
       add --live for a crowd or phone recording, --isolate for music under the voice
+      each quote has its own key; a key that holds a different quote is refused (--replace swaps it)
   python3 scripts/film.py clip start --isolate                  # change one clip: --live --isolate --no-live --no-isolate
   python3 scripts/film.py scenes clear                          # remove the template scenes
   python3 scripts/film.py scene add card --heading "NOVEMBER 6, 1860" --line "Elected president" --say "One fact." --clip start
@@ -104,13 +105,17 @@ def cmd_source(a):
     src[k] = {"file": path, "credit": credit, "url": url}; f["sources"] = src; save(f)
     print(f"OK source {k} -> {path}   ({len(src)} source(s))")
 
+BEATS = ["start", "risk", "cost", "turn", "payoff", "comeback"]
+def free_key(used):
+    return next((b for b in BEATS + [f"q{n}" for n in range(7, 99)] if b not in used), "q99")
+
 def cmd_clip(a):
     flags = [x for x in a if x.startswith("--")]; a = [x for x in a if not x.startswith("--")]
     if len(a) == 1 and flags:                           # film.py clip KEY --isolate | --live | --no-live | --no-isolate
         f = load(); c = f.get("clips", {}).get(a[0])
         if not isinstance(c, dict) or is_tpl(c): die(f"no clip {a[0]!r}.")
         for x in flags:
-            if x not in ("--live", "--isolate", "--no-live", "--no-isolate"): die(f"unknown option {x}.")
+            if x not in ("--live", "--isolate", "--no-live", "--no-isolate", "--replace"): die(f"unknown option {x}.")
             c[x.replace("--no-", "--")[2:]] = not x.startswith("--no-")
         save(f); print(f"OK clip {a[0]}: live={bool(c.get('live'))} isolate={bool(c.get('isolate'))}"); return
     if len(a) != 7: die('use: film.py clip KEY SOURCE IN OUT "exact words" YEAR "what it is about"  [--live] [--isolate]')
@@ -127,6 +132,10 @@ def cmd_clip(a):
     c = {"src": src, "in": i, "out": o, "text": text.strip(), "year": year, "about": about.strip()}
     if "--live" in flags: c["live"] = True
     if "--isolate" in flags: c["isolate"] = True
+    old = clips.get(k)
+    if old and "--replace" not in flags and (old.get("src") != src or not (i < old.get("out", 0) and o > old.get("in", 0))):
+        die(f"clip {k!r} is already a different quote: {old.get('src')} {old.get('in')}-{old.get('out')} \"{str(old.get('text', ''))[:50]}\".",
+            f"give each quote its own key: film.py clip {free_key(clips)} {src} {i:g} {o:g} ...   (add --replace only to swap out {k!r}).")
     for kk in ("live", "isolate", "lines"):            # keep what was set on this clip before unless told otherwise
         if kk in clips.get(k, {}) and kk not in c and f"--no-{kk}" not in flags: c[kk] = clips[k][kk]
     clips[k] = c; f["clips"] = clips; save(f); print(f"OK clip {k} ({o - i:.1f} s)   ({len(clips)} clip(s))")
