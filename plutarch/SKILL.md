@@ -28,14 +28,15 @@ Not for: videos with no real person at the center, or editing a video file the u
 That is the job. `next.py` reads the project and always knows the next step, including when to wait for a
 long job. Never write your own video script, outline, shell script or placeholder file instead.
 
-Each step has more detail in `SKILL_DIR/references/steps.md` (same step numbers). Read it when a step
-fails twice.
+Each step has more detail in `SKILL_DIR/references/steps.md`; find the section whose title matches the step
+next.py printed (the numbers differ). Read it when a step fails twice.
 
 ## Rules that next.py cannot check for you
 
 - **Change `film.json` and `story.md` only with `python3 scripts/film.py`.** Do not open them in an editor or
   write them with a heredoc. next.py prints the film.py command for each change. `film.py show` and
-  `film.py scenes` print what is there now.
+  `film.py scenes` print what is there now. The only hand edits are the few fields film.py has no command for
+  (a chart, crowd sound under a scene, a music file); steps.md names them.
 
 - **Every quote is real.** It must come from a recording in `src/` that you downloaded. Never from memory
   or an article.
