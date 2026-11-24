@@ -109,7 +109,7 @@ def build_prompt(plan):
         if parts and parts[-1][2] == md: parts[-1][1] = s["t1"] - m0
         else: parts.append([s["t0"] - m0, s["t1"] - m0, md])
     return ("Instrumental cinematic documentary score in D minor, modern hybrid orchestral, intimate and premium, no vocals. Structure: "
-            + " ".join(f"{mmss(p[0])}–{mmss(p[1])} {p[2]}." for p in parts)), m1 - m0
+            + " ".join(f"{mmss(p[0])} to {mmss(p[1])} {p[2]}." for p in parts)), m1 - m0
 
 def cmd_acestep(a):
     """Generate with a local ACE-Step 1.5 server (start it with: uv run acestep-api). API: /release_task, /query_result, /v1/audio."""

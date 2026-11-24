@@ -1,4 +1,4 @@
-# film.json — every field
+# film.json: every field
 
 You write scenes **in order**. You never write timestamps: `plan.py` works them out from the real length of
 each clip and narrator line. Start from `templates/film.json`.
