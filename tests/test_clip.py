@@ -8,6 +8,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_next import Project, KIT
 
 CLIP = os.path.join(KIT, "clip.py")
+SHELL = {"shlex": shlex, "re": re}                                 # dq comes from common.py, without its numpy import
+exec(compile(ast.Module([f for f in ast.parse(open(os.path.join(KIT, "common.py")).read()).body
+                         if isinstance(f, ast.FunctionDef) and f.name == "dq"], []), "common.py", "exec"), SHELL)
 
 
 class ClipPy(Project):
@@ -20,6 +23,23 @@ class ClipPy(Project):
         r = self.clip_py("find", "tx/interview.json", "a few words or an idea")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("example search", r.stdout)
+
+    def test_find_prints_apostrophes_plainly_and_the_command_runs(self):
+        self.ready_for_clips()
+        said = "I'm not done, that's $5 and a \"no\" from `him`."
+        with open(os.path.join(self.proj, "tx", "interview.json"), "w") as f:
+            json.dump({"segments": [{"s": 10.0, "e": 12.5, "text": said}]}, f)
+        r = self.clip_py("find", "tx/interview.json", "not done")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        cmd = next(l.strip() for l in r.stdout.splitlines() if "film.py clip" in l)
+        self.assertNotIn("'\"'\"'", cmd)                          # shlex.quote's form of an apostrophe
+        self.assertIn("I'm not done, that's", cmd)
+        cmd = re.sub(r"\bYEAR\b", "2012", cmd).replace("what he was talking about", "being cut")
+        cmd = cmd.replace("python3 scripts/film.py", f"{sys.executable} {os.path.join(KIT, 'film.py')}")
+        ok = subprocess.run(["bash", "-c", cmd], cwd=self.proj, capture_output=True, text=True)
+        self.assertEqual(ok.returncode, 0, ok.stdout)
+        clips = json.load(open(os.path.join(self.proj, "film.json")))["clips"]
+        self.assertIn(said, [c["text"] for c in clips.values()])   # bash hands film.py the exact words
 
     def test_find_ends_with_a_film_py_command_with_a_free_key(self):
         self.ready_for_clips()
@@ -54,7 +74,7 @@ class ClipPy(Project):
         """The widen and use-heard-words commands make prints are accepted by film.py."""
         tree = ast.parse(open(CLIP).read())
         fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "retype")
-        ns = {"shlex": shlex}; exec(compile(ast.Module([fn], []), CLIP, "exec"), ns)
+        ns = dict(SHELL); exec(compile(ast.Module([fn], []), CLIP, "exec"), ns)
         self.ready_for_clips()
         film_py = os.path.join(KIT, "film.py")
         subprocess.run([sys.executable, film_py, "clip", "turn", "interview", "10", "12.5", "I won it", "2007", "the Heisman"], cwd=self.proj, check=True, capture_output=True)
@@ -71,7 +91,7 @@ class ClipPy(Project):
     def test_caption_fix_is_a_film_py_command(self):
         """A wrong heard word is fixed with the film.py command clip.py prints, not by editing "lines" by hand."""
         tree = ast.parse(open(CLIP).read())
-        ns = {"shlex": shlex}
+        ns = dict(SHELL)
         for name in ("phrases_from", "lines_cmd"):
             exec(compile(ast.Module([next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)], []), CLIP, "exec"), ns)
         self.ready_for_clips()

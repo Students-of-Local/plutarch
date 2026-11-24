@@ -21,13 +21,13 @@ def free_key(used):
 
 def retype(cid, c, **change):
     """The film.py command that changes this clip (film.py keeps its --live and --isolate)."""
-    c = dict(c, **change); q = shlex.quote; t = lambda v: v if isinstance(v, str) else f"{float(v):g}"
+    c = dict(c, **change); q = dq; t = lambda v: v if isinstance(v, str) else f"{float(v):g}"
     return (f"python3 scripts/film.py clip {cid} {c.get('src')} {t(c.get('in', 0))} {t(c.get('out', 0))} "
             f"{q(str(c.get('text') or 'the exact words said'))} {c.get('year') or 'YEAR'} {q(str(c.get('about') or 'what he was talking about'))}")
 
 def lines_cmd(cid, sel):
     """The film.py command that sets this clip's captions, filled with the heard words."""
-    return f"python3 scripts/film.py clip {cid} --lines " + " ".join(shlex.quote(p["text"]) for p in phrases_from(sel, None)[0])
+    return f"python3 scripts/film.py clip {cid} --lines " + " ".join(dq(p["text"]) for p in phrases_from(sel, None)[0])
 
 def widened(cid, c):
     i = max(0.0, float(c["in"]) - 1); return retype(cid, c, **{"in": i, "out": min(float(c["out"]) + 1, i + 25)})
@@ -80,7 +80,7 @@ def cmd_find(a):
     print(f"\nNext: to keep #1, run this. Change only the last quoted part to what he was talking about"
           f"{'' if year != 'YEAR' else ' and YEAR to the year he said it'}.\n"
           f"For another result, use its \"in\" and \"out\" numbers and its >>> words instead (clip.py make snaps rough numbers).\n"
-          f"  python3 scripts/film.py clip {free_key(used)} {shlex.quote(src)} {s:.1f} {e:.1f} {shlex.quote(words)} {year} \"what he was talking about\"")
+          f"  python3 scripts/film.py clip {free_key(used)} {shlex.quote(src)} {s:.1f} {e:.1f} {dq(words)} {year} \"what he was talking about\"")
 
 def voicing(x, sr):
     """Per-10ms flags: is a steady voice pitch present? Returns (times, flags)."""

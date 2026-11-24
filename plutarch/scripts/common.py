@@ -1,5 +1,5 @@
 """Shared helpers for the plutarch kit. Run every script from your PROJECT folder (the one with film.json)."""
-import json, os, subprocess, sys, hashlib, re
+import json, os, shlex, subprocess, sys, hashlib, re
 import numpy as np
 
 SR = 48000
@@ -7,6 +7,11 @@ KIT = os.path.dirname(os.path.realpath(__file__))      # realpath: works when th
 
 def die(msg):
     print("ERROR: " + msg); sys.exit(1)
+
+def dq(s):
+    """Shell-quote text a model will copy or edit. shlex.quote turns I'm into I'"'"'m, which small models break."""
+    s = str(s)
+    return shlex.quote(s) if "'" not in s else '"' + re.sub(r'([\\"$`])', r'\\\1', s) + '"'
 
 def need(path, hint=""):
     if not os.path.exists(path): die(f"missing {path}. {hint}")
