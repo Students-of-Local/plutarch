@@ -130,7 +130,7 @@ for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "c
     if err and (log != "tx.log" or not all(os.path.exists("tx/" + os.path.splitext(os.path.basename(v.get("file", "")))[0] + ".json")
                                              for v in (film.get("sources") or {}).values() if isinstance(v, dict))):
         hint = {"tx.log": "If it mentions CUDA, cublas or cudnn: run it again with  PLUTARCH_DEVICE=cpu  in front of the command.",
-                "clips.log": "Read the ERROR line: usually a clip's in/out or text is wrong. Fix film.json \"clips\".",
+                "clips.log": "Read the ERROR line: usually a clip's in/out or text is wrong. Run that clip's film.py clip command again with the fix.",
                 "render.log": "Read the ERROR line and fix what it names; then start the render again."}[log]
         say("-", f"{what} crashed", [f"out/{log} says: {err}", hint, f"Then delete out/{log} and run python3 scripts/next.py"],
             why="the job stopped with an error, so its output is missing.")
@@ -247,7 +247,7 @@ dangling = sorted(x for x in used if x and x not in clips)
 unders = sorted({s["under"].get("src") for s in film.get("scenes", []) if isinstance(s.get("under"), dict)} - set(sources) - {None})
 scenes = film.get("scenes", [])
 if left or dangling or unders or not scenes or scenes[-1].get("type") != "end":
-    order = sorted(real, key=lambda k: (real[k].get("year", 0), k))
+    order = list(real)   # "year" is when it was said, not what it is about: the agent orders and dates the cards
     do = []
     if "<<" in str(film.get("title", "<<")): do.append('python3 scripts/film.py set title "TWO WORDS."        # 2-3 words, capitals, ends with a period')
     if "<<" in str(film.get("accent", "<<")): do.append('python3 scripts/film.py set accent "#C8102E"          # one color that fits the subject')
@@ -256,14 +256,18 @@ if left or dangling or unders or not scenes or scenes[-1].get("type") != "end":
         do.append("python3 scripts/film.py scene add title")
         for n, k in enumerate(order):
             c = real[k]; say_ = ' --say "One fact from story.md, max 16 words."' if n % 2 == 0 else ""
-            do.append(f'python3 scripts/film.py scene add card --heading "{c.get("year") or "DATE"}" --line "up to 7 words"{say_} --clip {k}')
+            do.append(f'python3 scripts/film.py scene add card --heading "DATE" --line "up to 7 words"{say_} --clip {k}      # {str(c.get("about", ""))[:40]}')
         do.append('python3 scripts/film.py scene add end --accent-text "2-3 WORDS."      # the answer to the title')
-        do += ["  -> change each --heading, --line and --say to real facts from story.md. Never invent numbers.",
+        do += ["  -> put the cards in the order of the events each quote is ABOUT (not the year it was said).",
+               "  -> --heading is the date of that event; --line and --say are real facts from story.md. Never invent numbers.",
                "  -> a scene can play a clip with no --say: the subject must talk more than the narrator.",
                "  -> the last scene before the end card must end with a --clip (the payoff)."]
     elif scenes[-1].get("type") != "end":
         do.append('python3 scripts/film.py scene add end --accent-text "2-3 WORDS."      # the film must end on the end card')
-    if left and not do: do = ["These still have template text:"] + ["  " + x for x in left[:12]] + ["python3 scripts/film.py scenes clear   # then add scenes with film.py scene add"]
+    if left and not do:
+        do = ["These fields still have template text:"] + ["  " + x for x in left[:12]] + \
+             ["Fix each with python3 scripts/film.py set KEY VALUE if KEY is title, subject, accent or max_seconds;",
+              "otherwise open film.json and put a real value at that spot (field list: references/film-json.md)."]
     do.append("python3 scripts/film.py scenes      # check the order")
     say(7, "write the scenes", do, why=f"{len(left)} placeholder(s) left outside clips/sources" if left else "the film has no scenes or no end card yet")
 
@@ -313,7 +317,7 @@ if not os.path.exists(mus) or (mus == "music/synth.wav" and mtime(mus) < mtime("
     say(10, "make the music", ["python3 scripts/score.py synth"])
 if mtime("out/mix.wav") < max(mtime("out/plan.json"), mtime(mus)):
     say(10, "mix the sound", ["python3 scripts/mix.py"],
-        why="every row must end in ok. COVERED: add \"isolate\": true to that clip (crowd/phone: \"live\": true), then python3 scripts/next.py")
+        why="every row must end in ok. COVERED: run that clip's film.py clip command again with --isolate (crowd/phone: --live), then python3 scripts/next.py")
 
 # ---- 11. pictures ----
 if mtime("out/sheet.jpg") < mtime("out/mix.wav"):

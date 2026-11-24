@@ -81,7 +81,7 @@ class FilmPy(Project):
         out = self.run_next()
         self.assertIn("STEP 7 of 12", out)
         fill = {"TWO WORDS.": "THE LONG ROAD.", "2-3 WORDS.": "HE KEPT GOING.", "up to 7 words": "A real line",
-                "One fact from story.md, max 16 words.": "He was elected in 1860."}
+                "One fact from story.md, max 16 words.": "He was elected in 1860.", "DATE": "1860"}
         for c in self.commands(out):
             if "film.py" not in c: continue
             args = shlex.split(c, comments=True)[2:]
@@ -89,6 +89,39 @@ class FilmPy(Project):
         self.assertIn("STEP 8 of 12: record the narrator", self.run_next())
         types = [s["type"] for s in self.data()["scenes"]]
         self.assertEqual((types[0], types[-1], types.count("card")), ("title", "end", 6))
+
+    def ready_for_scenes(self, clips):
+        self.ready_for_clips()
+        for k, (yr, about) in clips.items():
+            self.film_py("clip", k, "interview" if k != "s" else "speech", "1", "3", f"words {k}", str(yr), about)
+        for k, c in self.data()["clips"].items():
+            with open(os.path.join(self.proj, "clips", k + ".json"), "w") as f:
+                json.dump({"id": k, "wanted": c["text"], "in_exact": c["in"], "out_exact": c["out"], "live": False, "verified": "asr"}, f)
+
+    def test_scene_list_does_not_date_quotes_by_when_they_were_said(self):
+        """A 2020 podcast about a 2007 game: the card is not headed 2020 and keeps the order the agent chose."""
+        self.ready_for_scenes({"game": (2020, "the 2007 game"), "early": (2008, "his first season"), "a": (2019, "x"),
+                               "b": (2019, "x"), "c": (2019, "x"), "s": (2019, "x")})
+        cards = [c for c in self.commands(self.run_next()) if "scene add card" in c]
+        self.assertNotIn('"2020"', " ".join(cards))
+        self.assertIn("--clip game", cards[0])                 # order as added, not sorted by recording year
+        self.assertIn("the 2007 game", cards[0])
+
+    def test_leftover_placeholder_never_clears_real_scenes(self):
+        self.ready_for_scenes({k: (1860, "x") for k in ("a", "b", "c", "d", "e", "s")})
+        self.film_py("set", "title", "THE LONG ROAD."); self.film_py("set", "accent", "#B22234")
+        self.film_py("scenes", "clear"); self.film_py("scene", "add", "title")
+        self.film_py("scene", "add", "card", "--heading", "1860", "--clip", "a")
+        self.film_py("scene", "add", "end", "--accent-text", "HE KEPT GOING.")
+        self.film(narrator={"engine": "kokoro", "voice": "<<pick a voice>>"})
+        out = self.run_next()
+        self.assertIn("narrator.voice", out); self.assertNotIn("scenes clear", out)
+
+    def test_source_in_use_is_not_dropped(self):
+        self.ready_for_scenes({"a": (1860, "x")})
+        self.assertIn("drop clip a", self.film_py("drop", "source", "interview", ok=False))
+        self.film_py("drop", "clip", "a"); self.film_py("drop", "source", "interview")
+        self.assertNotIn("interview", self.data()["sources"])
 
 
 if __name__ == "__main__":

@@ -195,6 +195,11 @@ def cmd_drop(a):
     else:
         d = f.get(what + "s", {})
         if k not in d: die(f"no {what} {k!r}.")
+        if what == "source":
+            users = [c for c, v in f.get("clips", {}).items() if isinstance(v, dict) and v.get("src") == k and not is_tpl(v)]
+            under = [str(n) for n, s in enumerate(f.get("scenes", []), 1) if isinstance(s.get("under"), dict) and s["under"].get("src") == k]
+            if users: die(f"clips {', '.join(users)} use source {k}.", f"drop them first: film.py drop clip {users[0]}")
+            if under: die(f"scene(s) {', '.join(under)} play sound from source {k}.", f"film.py drop scene {under[0]}")
         del d[k]
         if what == "clip":
             for s in f.get("scenes", []): s["items"] = [i for i in s.get("items", []) if not (isinstance(i, dict) and i.get("clip") == k)]
