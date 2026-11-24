@@ -102,7 +102,7 @@ last word; every quote sits in the scene for the year it is **about**.
 python3 scripts/narrate.py
 python3 scripts/plan.py
 ```
-`narrate.py`: every row must say `ok` (`MISREAD` → respell the hard word the way it sounds, run again).
+`narrate.py`: every row must say `ok` (`MISREAD`: run the `film.py reword` line it prints with the hard word respelled the way it sounds, then run it again).
 `plan.py`: expect a scene table, then `TOTAL 131.2 s (limit 140 s). OK.` and a `REAL VOICE ... NARRATOR ... QUOTES` line.
 If it says `OVER by`, remove a quote or a scene (do not speed up the narrator). If it prints a `FIX:` line, do it
 (usually: add a quote or cut a narrator line). Then run both again. Other voices: `SKILL_DIR/references/voices-music-sfx.md`.

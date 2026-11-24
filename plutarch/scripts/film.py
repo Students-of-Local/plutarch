@@ -14,6 +14,7 @@
   python3 scripts/film.py scene add end --accent-text "HE KEPT GOING."
   python3 scripts/film.py scenes                                # list scenes with numbers
       new scenes go before the end card; --at 2 puts one at position 2
+  python3 scripts/film.py reword "First words of a narrator line" "The line, respelled the way it sounds."
   python3 scripts/film.py drop scene 3        # also: drop clip KEY, drop source KEY, drop fact 2
   python3 scripts/film.py show                                  # what is in film.json now
 
@@ -220,6 +221,26 @@ def cmd_drop(a):
             for s in f.get("scenes", []): s["items"] = [i for i in s.get("items", []) if not (isinstance(i, dict) and i.get("clip") == k)]
     save(f); print(f"OK {what} {k} removed")
 
+def cmd_reword(a):
+    if len(a) != 2: die('use: film.py reword "first words of the old line" "the new line"')
+    old, new = a[0].strip(), a[1].strip(); f = load()
+    if not old: die("give the first words of the narrator line to change.")
+    if not new: die("the new line is empty.")
+    if words(new) > 16: die(f"narrator line has {words(new)} words.", "narrator lines are at most 16 words: one fact.")
+    texts = []
+    for sc in f.get("scenes", []):
+        for it in sc.get("items", []):
+            if isinstance(it, dict) and isinstance(it.get("say"), str) and it["say"] not in texts: texts.append(it["say"])
+    hit = [t for t in texts if t.strip() == old] or [t for t in texts if t.strip().lower().startswith(old.lower())]
+    if len(hit) != 1:
+        shown = "\n".join("  " + t for t in (hit or texts)) or "  (no narrator lines yet)"
+        die(f"{len(hit) or 'no'} narrator lines start with {old!r}:\n{shown}", "give the first words of exactly one line above.")
+    n = 0
+    for sc in f.get("scenes", []):
+        for it in sc.get("items", []):
+            if isinstance(it, dict) and it.get("say") == hit[0]: it["say"] = new; n += 1
+    save(f); print(f"OK {n} narrator item(s) now say: {new!r}. Next: python3 scripts/next.py")
+
 def cmd_show(a):
     f = load(); real = lambda d: [k for k, v in d.items() if not is_tpl(v)]
     print(f"subject: {f.get('subject')}   title: {f.get('title')}   accent: {f.get('accent')}")
@@ -231,12 +252,13 @@ def cmd_show(a):
 
 EXAMPLES = {"FULL NAME", "TWO WORDS.", "2-3 WORDS.", "up to 7 words", "One fact from story.md, max 16 words.", "SHOW (YEAR)", "URL",
             "the exact words said", "what he was talking about", "Born March 3, 1960 in Ohio", "https://first-source",
-            "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT"}
+            "https://second-source", "https://where-you-got-it", "YEAR", "DATE", "KEY", "SECOND_SOURCE", "IN", "OUT",
+            "the line, respelled", "First words of a narrator line", "The line, respelled the way it sounds."}
 for x in sys.argv[2:]:
     if x.strip() in EXAMPLES or "___" in x or placeholder(x):
         die(f"{x!r} is the example text from next.py.", "write the real value for this film there, then run the command again.")
 
 CMDS = {"set": cmd_set, "sentence": cmd_sentence, "fact": cmd_fact, "source": cmd_source, "clip": cmd_clip,
-        "scene": cmd_scene, "scenes": cmd_scenes, "drop": cmd_drop, "show": cmd_show}
+        "scene": cmd_scene, "scenes": cmd_scenes, "drop": cmd_drop, "reword": cmd_reword, "show": cmd_show}
 if len(sys.argv) < 2 or sys.argv[1] not in CMDS: print(USAGE); sys.exit(0 if len(sys.argv) < 2 else 1)
 CMDS[sys.argv[1]](sys.argv[2:])

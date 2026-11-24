@@ -151,5 +151,36 @@ class FilmPy(Project):
         self.film_py("clip", "a", "--no-live"); self.assertFalse(self.data()["clips"]["a"]["live"])
 
 
+    def says(self):
+        return [i["say"] for sc in self.data()["scenes"] for i in sc.get("items", []) if "say" in i]
+
+    def test_reword_changes_one_narrator_line(self):
+        self.film_py("scenes", "clear")
+        self.film_py("scene", "add", "card", "--heading", "1860", "--say", "He won in 1860.", "--say", "He won in 1860, then wept.")
+        self.film_py("scene", "add", "card", "--heading", "1861", "--say", "Nguyen built the bridge.")
+        self.film_py("reword", "He won in 1860.", "He won in eighteen sixty.")          # exact line beats the longer one
+        self.assertEqual(self.says(), ["He won in eighteen sixty.", "He won in 1860, then wept.", "Nguyen built the bridge."])
+        out = self.film_py("reword", "nguyen", "Win built the bridge.")                  # unique start, any case
+        self.assertIn("Next: python3 scripts/next.py", out)
+        self.assertEqual(self.says()[2], "Win built the bridge.")
+        self.assertIn("2 narrator lines", self.film_py("reword", "He won", "x y", ok=False))
+        self.assertIn("Win built the bridge.", self.film_py("reword", "Lincoln", "x y", ok=False))   # no match lists the lines
+        self.film_py("reword", "Win built", "the line, respelled", ok=False)            # narrate.py's example text
+        self.film_py("reword", "Win built", "<the new line>", ok=False)
+        self.assertEqual(self.says()[2], "Win built the bridge.")
+
+    def test_narrate_prints_a_reword_line_that_runs(self):
+        """The command narrate.py prints for a MISREAD line finds that line once the example is replaced."""
+        src = open(os.path.join(os.path.dirname(FILM), "narrate.py")).read()
+        self.assertIn("film.py reword {shlex.quote(' '.join(text.split()[:6]))} \\\"the line, respelled\\\"", src)
+        self.film_py("scenes", "clear")
+        text = "Tebow's 2007 season ended with the Heisman Trophy."
+        self.film_py("scene", "add", "card", "--heading", "2007", "--say", text)
+        cmd = f"python3 {FILM} reword {shlex.quote(' '.join(text.split()[:6]))} " + shlex.quote("Tebow's two thousand seven season ended with the Heisman.")
+        r = subprocess.run(["bash", "-c", cmd], cwd=self.proj, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.says(), ["Tebow's two thousand seven season ended with the Heisman."])
+
+
 if __name__ == "__main__":
     unittest.main()

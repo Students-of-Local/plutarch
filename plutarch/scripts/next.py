@@ -288,7 +288,7 @@ if left or dangling or unders or not scenes or scenes[-1].get("type") != "end":
 says = [it["say"] for s in film.get("scenes", []) for it in s.get("items", []) if isinstance(it, dict) and it.get("say")]
 if any(not os.path.exists(f"narr/{say_id(t)}.json") for t in says):
     say(8, "record the narrator", ["python3 scripts/narrate.py"],
-        why="every row must say ok. MISREAD: respell that word the way it sounds, then run narrate.py again.")
+        why="every row must say ok. MISREAD: run the film.py reword line it prints, with the hard word respelled the way it sounds, then narrate.py again.")
 
 # ---- 9. timing ----
 deps = ["film.json"] + glob.glob("clips/*.json") + glob.glob("narr/*.json")

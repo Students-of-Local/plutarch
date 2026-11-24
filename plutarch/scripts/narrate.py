@@ -130,8 +130,11 @@ for text in lines:
     d = load_json(js); ok = d["similarity"] >= 0.6
     bad += not ok
     rows.append([nid, f"{d['dur']:.2f}s", "ok" if ok else "MISREAD", text[:64]])
-    if not ok: print(f"  [{nid}] the voice said: \"{d['heard'][:120]}\". Rewrite the line (spell out numbers and odd names) and run again.")
+    if not ok:
+        print(f"  [{nid}] the voice said: \"{d['heard'][:120]}\". Respell the word it got wrong (numbers and names as they sound):")
+        print(f"    python3 scripts/film.py reword {shlex.quote(' '.join(text.split()[:6]))} \"the line, respelled\"")
 table(rows, ["id", "length", "check", "line"])
 tot = sum(load_json(f"narr/{r[0]}.json")["dur"] for r in rows)
-print(f"\n{'OK' if not bad else 'FIX NEEDED'}: {len(rows)} narrator lines, {tot:.1f} s total, voice {n.get('engine')}/{n.get('voice')}. Next: python3 scripts/plan.py")
+print(f"\n{'OK' if not bad else 'FIX NEEDED'}: {len(rows)} narrator lines, {tot:.1f} s total, voice {n.get('engine')}/{n.get('voice')}. "
+      + ("Next: python3 scripts/plan.py" if not bad else "Next: run each film.py reword line above with the respelled line, then python3 scripts/narrate.py"))
 sys.exit(1 if bad else 0)
