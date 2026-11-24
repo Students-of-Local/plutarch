@@ -2,8 +2,9 @@
 """Find and download real audio of your subject. Every command prints plain lines you can copy from.
 
   python3 scripts/find_audio.py web "<full name> interview podcast"        # general web search
-  python3 scripts/find_audio.py podcast "<show name>"                      # find a podcast -> its feed URL
-  python3 scripts/find_audio.py episodes <feed-url> --grep "<guest>"       # list episodes -> audio URLs
+  python3 scripts/find_audio.py podcast "<full name>"                      # podcast episodes with them -> a get line each
+  python3 scripts/find_audio.py podcast "<show name>" --shows              # find a show -> its feed URL
+  python3 scripts/find_audio.py episodes <feed-url> --grep "<guest>"       # list a show's episodes -> audio URLs
   python3 scripts/find_audio.py yt "<full name> commencement speech" -n 8  # YouTube search (id, title, minutes)
   python3 scripts/find_audio.py subs <video-url>                           # captions ONLY -> tx/<id>.json (search before you download)
   python3 scripts/find_audio.py archive "<full name>"                      # Internet Archive audio/video
@@ -39,10 +40,31 @@ def cmd_web(a):
     for t, u, s in rows[:a.n]: print(f"{t[:80]} | {u}\n    {re.sub(r'<[^>]+>', '', s)[:160]}")
     print(f"\n{len(rows[:a.n])} results. Open the best pages and look for: a podcast episode, a talk, or posts with video.")
 
+def slug(s): return "-".join(re.findall(r"[a-z0-9]+", s.lower())[:3]) or "episode"   # first 3 words of the show name
+
 def cmd_podcast(a):
-    d = json.loads(http("https://itunes.apple.com/search?entity=podcast&limit=8&term=" + urllib.parse.quote(a.name)))
-    for r in d.get("results", []): print(f"{r.get('collectionName', '')[:60]} | {r.get('artistName', '')[:30]} | {r.get('feedUrl', '')}")
-    print("\nNext: python3 scripts/find_audio.py episodes <feed-url> --grep \"<guest or topic>\"")
+    q = urllib.parse.quote(a.name)
+    if a.shows:
+        d = json.loads(http(f"https://itunes.apple.com/search?media=podcast&entity=podcast&limit={a.n}&term={q}"))
+        for r in d.get("results", []): print(f"{r.get('collectionName', '')[:60]} | {r.get('artistName', '')[:30]} | {r.get('feedUrl', '')}")
+        print("\nNext: python3 scripts/find_audio.py episodes <feed-url> --grep \"<guest or topic>\"")
+        return
+    d = json.loads(http(f"https://itunes.apple.com/search?media=podcast&entity=podcastEpisode&limit={a.n}&term={q}"))
+    rows = [r for r in d.get("results", []) if r.get("episodeUrl")]
+    if not rows:
+        print(f"0 podcast episodes found for {a.name!r}.\nFIX: try python3 scripts/find_audio.py archive {shlex.quote(a.name)}"); return
+    mins = lambda r: round((r.get("trackTimeMillis") or 0) / 60000)
+    rows.sort(key=lambda r: not 5 <= mins(r) <= 75)              # keeps search order; episodes of 5-75 min first
+    used = {os.path.splitext(f)[0] for f in os.listdir("src")} if os.path.isdir("src") else set()
+    for r in rows:
+        show, year = r.get("collectionName", "").strip(), (r.get("releaseDate") or "")[:4]
+        name = slug(show); k = 2
+        while name in used: name = f"{slug(show)}-{k}"; k += 1
+        used.add(name)
+        print(f"{(r.get('releaseDate') or '')[:10]} | {mins(r)} min | {show[:32]} | {r.get('trackName', '')[:70]}")
+        print(f"  python3 scripts/find_audio.py get {shlex.quote(r['episodeUrl'])} --name {name} --credit {shlex.quote(f'{show} ({year})')}")
+    print(f"\n{len(rows)} episodes. Pick one where {a.name} is the guest, under 75 minutes if you can "
+          "(transcribing takes about 1 minute per 10 minutes of audio).\nNext: run that episode's find_audio.py get line.")
 
 def cmd_episodes(a):
     import xml.etree.ElementTree as ET
@@ -115,17 +137,18 @@ def cmd_get(a):
         path = os.path.relpath(path)
     if a.start is not None and not a.url.lower().startswith("http"): pass
     d = duration(path)
-    cmd = f"python3 scripts/film.py source {name} {shlex.quote(path)} \"SHOW (YEAR)\" {shlex.quote(a.url)}"
-    print(f"OK {path}  ({d/60:.1f} min)\nRecord it (write the show or event name and its year in place of SHOW (YEAR)):\n  {cmd}"
+    credit = shlex.quote(a.credit) if a.credit else "\"SHOW (YEAR)\""
+    cmd = f"python3 scripts/film.py source {name} {shlex.quote(path)} {credit} {shlex.quote(a.url)}"
+    print(f"OK {path}  ({d/60:.1f} min)\n" + ("Record it:" if a.credit else "Record it (write the show or event name and its year in place of SHOW (YEAR)):") + f"\n  {cmd}"
           + (f"\nNOTE: you downloaded only {a.start}-{a.end} s, so times in this file start at 0, not at {a.start}." if a.start is not None else "")
           + "\nNext: python3 scripts/next.py")
 
 ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
 p = sub.add_parser("web"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_web)
-p = sub.add_parser("podcast"); p.add_argument("name"); p.set_defaults(fn=cmd_podcast)
+p = sub.add_parser("podcast"); p.add_argument("name"); p.add_argument("--shows", action="store_true"); p.add_argument("-n", type=int, default=10); p.set_defaults(fn=cmd_podcast)
 p = sub.add_parser("episodes"); p.add_argument("feed"); p.add_argument("--grep"); p.add_argument("-n", type=int, default=15); p.set_defaults(fn=cmd_episodes)
 p = sub.add_parser("yt"); p.add_argument("query"); p.add_argument("-n", type=int, default=8); p.set_defaults(fn=cmd_yt)
 p = sub.add_parser("subs"); p.add_argument("url"); p.set_defaults(fn=cmd_subs)
 p = sub.add_parser("archive"); p.add_argument("query"); p.add_argument("-n", type=int, default=10); p.set_defaults(fn=cmd_archive)
-p = sub.add_parser("get"); p.add_argument("url"); p.add_argument("--name", required=True); p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.set_defaults(fn=cmd_get)
+p = sub.add_parser("get"); p.add_argument("url"); p.add_argument("--name", required=True); p.add_argument("--start", type=float); p.add_argument("--end", type=float); p.add_argument("--credit"); p.set_defaults(fn=cmd_get)
 a = ap.parse_args(); a.fn(a)

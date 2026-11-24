@@ -193,11 +193,9 @@ srcfiles = sorted(f for f in glob.glob("src/*") if f.lower().endswith(AUD) or f 
 if not srcfiles:
     say(3, "get a real recording of the subject's voice into src/",
         [f'python3 scripts/find_audio.py podcast "{who}"',
-         "  -> pick a show that interviewed them; copy its feed URL",
-         f'python3 scripts/find_audio.py episodes "FEED_URL" --grep "{who.split()[-1]}"',
-         "  -> copy the audio URL of the episode with them in it",
-         'python3 scripts/find_audio.py get "AUDIO_URL" --name interview',
-         "It prints a film.py source command. Write the show name and year into it, then run it."],
+         "  -> it lists podcast episodes with them, each with a find_audio.py get line. Run the get line of one where they are the guest.",
+         "  -> get prints a film.py source command. Run it.",
+         f'No episode with them? python3 scripts/find_audio.py archive "{who}"'],
         why="src/ has no audio yet. Read references/finding-audio.md if podcasts find nothing. YouTube is often blocked; prefer podcasts.")
 bad_src = [k for k, v in sources.items() if holders(v) or not os.path.exists(v.get("file", ""))]
 if bad_src or not sources:
@@ -212,9 +210,9 @@ if bad_src or not sources:
 if len(sources) < 2:
     say(3, "get a second recording (a different interview, speech or event)",
         [f'python3 scripts/find_audio.py podcast "{who}"',
-         f'python3 scripts/find_audio.py archive "{who}"',
-         'python3 scripts/find_audio.py get "AUDIO_URL" --name SECOND_NAME',
-         "Then run the film.py source command it prints, with the show name and year filled in."],
+         "  -> run the get line of a DIFFERENT episode (another show or year) from the one you have.",
+         "  -> get prints a film.py source command. Run it.",
+         f'No other episode? python3 scripts/find_audio.py archive "{who}"'],
         why="the film needs real voice from at least 2 sources (check.py and the acceptance checks require it).")
 
 # ---- 4. transcripts ----

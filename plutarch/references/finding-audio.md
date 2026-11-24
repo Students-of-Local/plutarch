@@ -28,7 +28,8 @@ Read this at step 2. Goal: 2-4 sources in `src/`, at least one long, clean inter
 
 | where it is | command |
 |---|---|
-| a podcast | `find_audio.py podcast "<show>"` → `episodes <feed> --grep "<guest>"` → `get "<mp3 url>" --name x` |
+| a podcast episode with them | `find_audio.py podcast "<full name>"` → run one printed `get` line |
+| one show's back catalog | `find_audio.py podcast "<show>" --shows` → `episodes <feed> --grep "<guest>"` → `get "<mp3 url>" --name x` |
 | YouTube | `find_audio.py yt "<query>"` → `subs <url>` (captions only, seconds to fetch) → `clip.py find tx/<id>.json "phrase"` → `get <url> --name x --start S --end E` |
 | a post on X | `find_audio.py get "<post url>" --name x` |
 | archive.org | `find_audio.py archive "<query>"` → `get "<details url>" --name x` |
@@ -39,7 +40,8 @@ you to use their own logged-in browser.
 
 ## Places with spoken-word archives
 
-- Podcast feeds (via `find_audio.py podcast`): the show's own RSS has every episode's audio URL.
+- Podcast episodes (via `find_audio.py podcast`): Apple's podcast index searches episode titles and
+  descriptions, so a guest's name finds the shows they were on, with each episode's audio URL.
 - Internet Archive (`archive`): talks, radio, old TV, conference recordings.
 - Government and public-broadcast sites (speeches, hearings): US federal government recordings are public domain.
 - Wikimedia Commons audio: free licenses, check each file's page.
