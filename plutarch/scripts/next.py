@@ -181,9 +181,11 @@ if len(facts) < 5 or not sentence_ok:
         why=f"story.md has {len(facts)} fact rows with two URLs (need 5)" + ("" if sentence_ok else " and no one-sentence summary yet"))
 
 # ---- 3. audio sources ----
-AUD = (".mp3", ".m4a", ".wav", ".flac", ".mp4", ".webm", ".mkv", ".opus", ".ogg", ".aac", ".mov")
-srcfiles = sorted(f for f in glob.glob("src/*") if f.lower().endswith(AUD))
+AUD = (".mp3", ".m4a", ".wav", ".flac", ".mp4", ".webm", ".mkv", ".opus", ".ogg", ".aac", ".mov", ".mpg", ".mpeg", ".avi",
+       ".m4v", ".ts", ".3gp", ".flv", ".wma", ".aif", ".aiff", ".mka", ".amr", ".wmv")
 sources = film.get("sources", {})
+named = {v.get("file") for v in sources.values() if isinstance(v, dict) and isinstance(v.get("file"), str)}
+srcfiles = sorted(f for f in glob.glob("src/*") if f.lower().endswith(AUD) or f in named)   # a file a source names is audio
 if not srcfiles:
     say(3, "get a real recording of the subject's voice into src/",
         [f'python3 scripts/find_audio.py podcast "{who}"',
