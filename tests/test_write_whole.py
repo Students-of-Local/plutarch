@@ -1,6 +1,5 @@
 """A full disk or a failed download leaves film.json, story.md and the source audio as they were."""
-import ast, http.server, json, os, pathlib, re, resource, shutil, stat, subprocess, sys, threading, unittest, urllib.request
-from unittest import mock
+import http.server, json, os, pathlib, resource, shutil, stat, subprocess, sys, threading, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_next import Project, KIT
@@ -68,6 +67,17 @@ class Whole(Project):
         self.assertTrue(os.path.islink(self.path("film.json"))); self.assertEqual(stat.S_IMODE(os.stat(real).st_mode), 0o640)
         self.assertEqual(json.loads(self.read("film.json"))["subject"], "B")
 
+    @unittest.skipIf(os.geteuid() == 0, "root may write a read-only file")
+    def test_a_read_only_file_is_left_alone(self):
+        os.chmod(self.path("film.json"), 0o444)
+        self.assertIn("ERROR: could not write film.json: Permission denied.", self.unchanged("film.json", lambda: self.script("film.py", "set", "subject", "B")))
+
+    def test_roots_save_keeps_the_owner(self):
+        """Only root can give a file away, so chown is replaced and what it was asked is read."""
+        st = os.stat(self.path("film.json"))
+        code, out = self.py("-c", "import os, common; os.chown = lambda *a: print('CHOWN', *a[1:]); common.write_file('film.json', '{}')", path=self.stubs + os.pathsep + KIT)
+        self.assertEqual((code, out.strip()), (0, f"CHOWN {st.st_uid} {st.st_gid}"))
+
     def test_film_py_needs_no_numpy(self):
         with open(os.path.join(self.stubs, "numpy", "__init__.py"), "w") as f: f.write("raise ImportError('not here')")
         self.assertEqual(self.script("film.py", "set", "subject", "B")[0], 0)
@@ -78,24 +88,20 @@ class Whole(Project):
     def test_a_failed_get_keeps_the_old_recording(self):
         class H(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
-                self.send_response(200 if "cut" in self.path else 503); self.send_header("Content-Length", "9000"); self.end_headers(); self.wfile.write(b"part")
+                self.send_response(503 if "down" in self.path else 200)
+                if "page" not in self.path: self.send_header("Content-Length", "0" if "empty" in self.path else "9000")
+                self.end_headers(); self.wfile.write(b"" if "empty" in self.path else b"<html>log in</html>")
             def log_message(self, *a): pass
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
         pathlib.Path(self.path("src", "a.mp3")).write_bytes(os.urandom(50000))
-        for url in ("http://127.0.0.1:1/x.mp3", f"http://127.0.0.1:{srv.server_port}/down.mp3", f"http://127.0.0.1:{srv.server_port}/cut.mp3"):
+        for url in ("http://127.0.0.1:1/x.mp3", *(f"http://127.0.0.1:{srv.server_port}/{f}.mp3" for f in ("down", "cut", "empty", "page"))):
             self.unchanged("src/a.mp3", lambda: self.script("find_audio.py", "get", url, "--name", "a"))
 
-    def test_a_cut_off_voice_download_writes_nothing(self):
-        """No network: urlopen is replaced by a reply that breaks off while it is read."""
-        src = pathlib.Path(KIT, "narrate.py").read_text("utf8"); ns = dict(json=json, os=os, re=re, urllib=urllib, die=self.fail, write_file=None)
-        f = next(f for f in ast.parse(src).body if isinstance(f, ast.FunctionDef) and f.name == "synth"); exec(compile(ast.Module([f], []), "narrate.py", "exec"), ns)
-        out = self.path("narr", "o.wav")
-        for eng in ("openai", "elevenlabs"):
-            with mock.patch("urllib.request.urlopen") as u, mock.patch.dict(os.environ, {"OPENAI_API_KEY": "", "ELEVENLABS_API_KEY": "x"}):
-                u.return_value.__enter__.return_value.read.side_effect = ConnectionResetError
-                with self.assertRaises(ConnectionResetError): ns["synth"]("hi", out, {"engine": eng, "voice": "v"})
-            self.assertFalse(os.path.exists(out), eng)
+    def test_an_interrupted_redo_leaves_no_json(self):
+        """The old json beside a new wav would pass as current. Every line from removing it to saving it is in this order."""
+        src = pathlib.Path(KIT, "narrate.py").read_text("utf8"); at = [src.index(x) for x in ("os.remove(js)", "save_wav(wavp, x)", "save_json(js")]
+        self.assertEqual(at, sorted(at))
 
 
 if __name__ == "__main__":

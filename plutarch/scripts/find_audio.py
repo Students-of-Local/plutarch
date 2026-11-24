@@ -134,7 +134,7 @@ def cmd_get(a):
     if re.search(r"\.(mp3|m4a|wav|ogg|flac|aac)(\?|$)", a.url, re.I) and a.start is None:
         ext = re.search(r"\.(mp3|m4a|wav|ogg|flac|aac)(\?|$)", a.url, re.I).group(1).lower()
         path = f"src/{name}.{ext}"
-        write_file(path, http(a.url, timeout=600))
+        write_file(path, http(a.url, timeout=600), check=duration)      # a page or an empty reply is not audio
     else:
         args = ["-f", "ba/b", "-o", f"src/{name}.%(ext)s", "--print", "after_move:filepath"]
         if a.start is not None: args += ["--download-sections", f"*{a.start}-{a.end if a.end is not None else 'inf'}"]
