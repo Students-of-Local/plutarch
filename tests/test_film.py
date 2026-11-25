@@ -50,6 +50,26 @@ class FilmPy(Project):
         self.film_py("scene", "add", "card", "--heading", "1862"); self.film_py("scene", "add", "card", "--heading", "1863")
         self.film_py("drop", "scene", "2"); self.film_py(*add)
 
+    def test_words_that_could_not_be_cut_are_refused(self):
+        """qwen3:4b (2026-11-24) added one quote 14 times, each a second longer, after clip.py make could not cut it."""
+        self.ready_for_clips()
+        add = lambda a, b, t="never hand", k="payoff", ok=True, f=(): self.film_py("clip", k, "interview", a, b, t, "1860", "his work", *f, ok=ok)
+        add("10", "12"); log = os.path.join(self.proj, "out", "clips.log"); os.makedirs(os.path.dirname(log), exist_ok=True)
+        open(log, "w").write("ERROR: clip 'payoff': could not find all of \"never hand\" near 10.0-12.0 s.\n")
+        self.assertIn("could not cut", add("10", "13", ok=False))                # the failed clip itself, made longer
+        self.film_py("drop", "clip", "payoff"); os.remove(log)                   # the model deleted the log each time
+        for k in ("payoff", "cost"):
+            out = add("10", "20", k=k, ok=False); self.assertIn("however long", out); self.assertIn("clip.py find tx/interview.json", out)
+        add("10", "12", "chasing the action"); self.film_py("drop", "clip", "payoff")      # other words there, the same words elsewhere, and --live are new tries
+        add("40", "42"); self.film_py("drop", "clip", "payoff"); add("10", "12", f=("--live",))
+
+    def test_words_dropped_for_another_reason_can_return(self):
+        self.ready_for_clips(); add = lambda: self.film_py("clip", "start", "interview", "10", "12", "never hand", "1860", "his work")
+        add(); self.film_py("drop", "clip", "start"); add()
+        os.makedirs(os.path.join(self.proj, "out"), exist_ok=True)
+        open(os.path.join(self.proj, "out", "clips.log"), "w").write("ERROR: clip 'start': could not find all of \"other words\" near 1-2 s.\n")     # an older quote under this key
+        self.film_py("drop", "clip", "start"); add()
+
     def test_help_prints_usage_and_in_out_points_at_find(self):
         out = self.film_py("clip", "--help")                       # a small model asked for help and got an ERROR
         self.assertIn("film.py clip start interview 560.9 562.3", out)

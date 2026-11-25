@@ -180,7 +180,8 @@ for log, out, what in (("tx.log", None, "transcribe.py"), ("clips.log", None, "c
     err = failed(log, out)
     if err and log == "clips.log":                             # a quote that can't be cut is not a crash
         txt = open("out/clips.log", encoding="utf8", errors="replace").read()
-        lost = [k for k in dict.fromkeys(re.findall(r"^ERROR: clip '([^']+)'", txt, re.M)) if k in (film.get("clips") or {})]
+        named = list(dict.fromkeys(re.findall(r"^ERROR: clip '([^']+)'", txt, re.M))); lost = [k for k in named if k in (film.get("clips") or {})]
+        if named and not lost and "Traceback" not in txt: continue                # they were dropped since
         if lost and "Traceback" not in txt:
             if mtime("film.json") > mtime("out/clips.log"): continue          # it was changed since: cut again
             why = re.search(rf"^ERROR: clip '{re.escape(lost[0])}': (.*)", txt, re.M).group(1)
