@@ -117,7 +117,7 @@ for p in sorted(glob.glob(os.path.join(KIT, "*.py"))):
 if broken:
     say(0, "the skill is damaged",
         [f"Someone changed {', '.join(broken)} in {KIT}, and it no longer runs. Never edit, overwrite or replace a file in the skill folder.",
-         "Reinstall the skill: copy a fresh plutarch/ folder from https://github.com/baney75/plutarch over the old one,",
+         "Reinstall the skill: copy a fresh plutarch/ folder from https://github.com/Students-of-Local/plutarch over the old one,",
          "or ask the user to. Your film project folder is safe: do not delete it."],
         why="a kit script does not compile.", then=f"python3 {QKIT}/next.py")
 
