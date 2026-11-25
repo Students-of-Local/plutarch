@@ -427,6 +427,6 @@ if not fails:
         ["Fix what the last line names (a missing file: rerun the step that makes it), then: rm out/check.txt"],
         why="check.py stopped before it could measure the film.")
 say(12, "fix what check.py failed",
-    ["These lines are from out/check.txt:"] + ["  " + l.strip()[:160] for l in fails[:14]] +
+    ["These lines are from out/check.txt:"] + ["  " + l.strip()[:320] for l in fails[:14]] +
     ["Do each FIX line. After any change, python3 scripts/next.py tells you what to rerun."],
     why="not done until check.py prints ALL CHECKS PASSED.")

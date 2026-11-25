@@ -20,6 +20,16 @@ class Hints(unittest.TestCase):
             for target in re.findall(r"Next:[^\"']*?scripts/(\w+\.py)", src):
                 self.assertIn(target, ok | {"next.py"}, f"{name} hints at {target}")
 
+    def test_check_py_never_sends_a_model_to_film_json(self):
+        """qwen3:4b (2026-11-24) finished a film, read "cut narrator lines in film.json", edited the file by hand and said it was done."""
+        src = open(os.path.join(KIT, "check.py")).read()
+        for name in ("first frame not black", "real voice is half the talking", "enough real quotes"):
+            line = next(l for l in src.splitlines() if f'chk("{name}"' in l)
+            self.assertIn("python3 scripts/film.py ", line, name); self.assertNotIn("film.json", line, name)
+        cut = int(re.search(r"l\.strip\(\)\[:(\d+)\] for l in fails", open(os.path.join(KIT, "next.py")).read())[1])     # next.py must not cut a command in half
+        self.assertGreater(cut, max(len(l.split('", "', 1)[-1]) for l in src.splitlines() if "film.py scene add" in l))
+        self.assertRegex(src, r'if not ok: print\(.*Do not edit film\.json by hand.*python3 scripts/next\.py')
+
     def test_every_hint_is_listed(self):
         for name in os.listdir(KIT):
             if name.endswith(".py") and "Next:" in open(os.path.join(KIT, name)).read():

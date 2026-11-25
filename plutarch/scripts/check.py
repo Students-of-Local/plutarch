@@ -37,7 +37,7 @@ chk("no dead air", best * 0.1 <= 1.5, f"longest silence {best * 0.1:.1f} s" + (f
 def luma(t):
     raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", a.final, "-frames:v", "1", "-vf", "scale=270:480,format=gray", "-f", "rawvideo", "-"], capture_output=True).stdout
     return np.frombuffer(raw, np.uint8) if raw else np.zeros(1, np.uint8)
-f0 = luma(0.0); chk("first frame not black", f0.max() > 60, f"brightest pixel {int(f0.max())}/255 (it is the thumbnail)", "scene 1 must show something at 0.0 s: make it an arena with \"reveal\": \"hits\", or a card whose first item is a clip (no narrator line first)")
+f0 = luma(0.0); chk("first frame not black", f0.max() > 60, f"brightest pixel {int(f0.max())}/255 (it is the thumbnail)", "scene 1 must start with a quote: python3 scripts/film.py drop scene 1   then   python3 scripts/film.py scene add card --at 1 --heading \"1987\" --clip KEY --say \"One fact.\"   (--clip before --say; KEY and the words are yours)")
 dark = [s["id"] for s in plan["scenes"] if luma((s["t0"] + s["t1"]) / 2).max() < 50]
 chk("every scene shows something", not dark, "empty scenes: " + ", ".join(dark) if dark else f"{len(plan['scenes'])} scenes", "open out/sheet.jpg (render.py --sheet) and fix those scenes")
 # 4 every line sits exactly where the plan says (waveform match), captions follow the words, and the words are right
@@ -100,12 +100,13 @@ if film:
 sp = sorted([q for q in plan["audio"] if q["role"] in ("narr", "voice", "live")], key=lambda q: q["at"])
 rs = sum(q["dur"] for q in sp if q["role"] != "narr"); ns = sum(q["dur"] for q in sp if q["role"] == "narr")
 nq = len({q.get("id") for q in sp if q["role"] != "narr"}); wantq = max(3, round(plan["dur"] / 25))
-chk("real voice is half the talking", rs >= 0.5 * (rs + ns), f"real voice {rs:.0f} s, narrator {ns:.0f} s", "add quotes or cut narrator lines in film.json, then narrate.py, plan.py, mix.py, render.py")
-chk("enough real quotes", nq >= wantq, f"{nq} quotes (need {wantq} for this length)", "add quotes: clip.py find, add to film.json clips and scenes, clip.py make, plan.py, mix.py, render.py")
+chk("real voice is half the talking", rs >= 0.5 * (rs + ns), f"real voice {rs:.0f} s, narrator {ns:.0f} s", "python3 scripts/film.py scenes   lists the scenes. Drop one that is mostly narrator: python3 scripts/film.py drop scene N   or add a longer quote: python3 scripts/film.py scene add card --heading \"1987\" --clip KEY")
+chk("enough real quotes", nq >= wantq, f"{nq} quotes (need {wantq} for this length)", "find one more: python3 scripts/clip.py find tx/NAME.json 'I remember'   run the film.py clip line it prints, then python3 scripts/film.py scene add card --heading \"1987\" --clip KEY")
 chk("the subject has the last word", bool(sp) and sp[-1]["role"] != "narr", ("last: \"" + sp[-1]["label"][:36] + "\"") if sp else "nothing is said", "end the last speaking scene with a clip, not a narrator line")
 ok = all(r[1] for r in res)
 table([["PASS" if r[1] else "FAIL", r[0], r[2]] for r in res], ["", "check", "measured"])
 for r in res:
     if not r[1]: print(f"FIX {r[0]}: {r[3]}")
+if not ok: print("\nDo not edit film.json by hand, and do not say it is done. Run the film.py lines above, then: python3 scripts/next.py")
 print(f"\n{'ALL CHECKS PASSED' if ok else 'NOT DONE: ' + str(sum(not r[1] for r in res)) + ' check(s) failed'}  ({a.final})")
 sys.exit(0 if ok else 1)
