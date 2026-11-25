@@ -129,6 +129,22 @@ BEATS = ["start", "risk", "cost", "turn", "payoff", "comeback"]
 def free_key(used):
     return next((b for b in BEATS + [f"q{n}" for n in range(7, 99)] if b not in used), "q99")
 
+UNCUT = "out/uncut.json"
+def uncut():
+    try: return json.load(open(UNCUT, encoding="utf8"))
+    except (OSError, ValueError): return []
+
+def not_cut(k, c):
+    """True when clip.py make's last run could not cut this clip's words."""
+    try: log = open("out/clips.log", encoding="utf8", errors="replace").read()
+    except OSError: return False
+    m = re.search(rf"^ERROR: clip '{re.escape(k)}': (?:could not find all of \"(.*)\" near|the words last only|no speech heard)", log, re.M)
+    return bool(m) and (m[1] is None or str(c.get("text") or "")[:70] == m[1])
+
+def same_words(c, x):
+    return (c["src"] == x.get("src") and facts.plainly(c["text"]) == facts.plainly(str(x.get("text") or "")) and bool(c.get("live")) == bool(x.get("live"))
+            and c["in"] < x.get("out", 0) and c["out"] > x.get("in", 0))
+
 def cmd_clip(a):
     flags = [x for x in a if x.startswith("--")]; a = [x for x in a if not x.startswith("--")]
     if "--lines" in flags: return clip_lines(a)
@@ -161,6 +177,10 @@ def cmd_clip(a):
             f"give each quote its own key: film.py clip {free_key(clips)} {src} {i:g} {o:g} ...   (add --replace only to swap out {k!r}).")
     for kk in ("live", "isolate", "lines"):            # keep what was set on this clip before unless told otherwise
         if kk in clips.get(k, {}) and kk not in c and f"--no-{kk}" not in flags: c[kk] = clips[k][kk]
+    if any(same_words(c, x) for x in uncut() + ([old] if old and not_cut(k, old) else [])):      # a wider cut of the same words fails again
+        tx = os.path.splitext(os.path.basename(f["sources"][src].get("file", "")))[0]
+        die(f"clip.py make could not cut \"{text.strip()[:50]}\" there. The same words fail again, however long the cut is.",
+            f"pick a different quote: python3 scripts/clip.py find tx/{tx}.json 'I remember'   (or another word)")
     clips[k] = c; f["clips"] = clips; save(f); print(f"OK clip {k} ({o - i:.1f} s)   ({len(clips)} clip(s))")
 
 def clip_lines(a):
@@ -267,6 +287,8 @@ def cmd_drop(a):
             under = [str(n) for n, s in enumerate(f.get("scenes", []), 1) if isinstance(s.get("under"), dict) and s["under"].get("src") == k]
             if users: die(f"clips {', '.join(users)} use source {k}.", f"drop them first: film.py drop clip {users[0]}")
             if under: die(f"scene(s) {', '.join(under)} play sound from source {k}.", f"film.py drop scene {under[0]}")
+        if what == "clip" and isinstance(d[k], dict) and not_cut(k, d[k]):
+            os.makedirs("out", exist_ok=True); write_file(UNCUT, json.dumps(uncut() + [d[k]]))
         del d[k]
         if what == "clip":
             for s in f.get("scenes", []): s["items"] = [i for i in s.get("items", []) if not (isinstance(i, dict) and i.get("clip") == k)]

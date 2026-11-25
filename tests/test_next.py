@@ -70,6 +70,8 @@ class NextPy(Project):
         os.utime(log, (1000, 1000)); os.utime(p, (2000, 2000))     # film.json changed since: the stale log is ignored
         out = self.run_next()
         self.assertIn("STEP 6 of 12: cut and verify the quotes", out)
+        os.utime(p, (1000, 1000)); os.utime(log, (2000, 2000)); del film["clips"]["payoff"]       # dropped: not a crash either
+        json.dump(film, open(p, "w")); os.utime(log, (4e9, 4e9)); out = self.run_next(); self.assertNotIn("crashed", out); self.assertIn("STEP 6 of 12: cut and verify", out)
         open(log, "w").write("Traceback (most recent call last):\n" + line); os.utime(p, (1000, 1000))
         self.assertIn("clip.py make crashed", self.run_next())      # a real crash is still one
 
