@@ -122,11 +122,23 @@ Measured on 2026-11-24 with local models under the pi harness on one machine, tr
   skill, qwen2.5:1.5b, qwen3:4b and LFM2.5-8B-A1B read SKILL.md 0 of 6 times. LFM2.5-24B-A2B read it 6 of 6,
   and ran a kit script 6 of 6 after the description was rewritten (2 of 6 before). Name the skill
   (`/skill:plutarch` in pi) when you use a small model.
-- **No local model has finished a film yet.** In 35-minute runs with the skill named, qwen3:4b on the first
-  version downloaded and transcribed a real interview but wrote its own film.json outside a project (step 1 of
-  12). Those failures led to `next.py` and `film.py`. With them, qwen3:4b reached step 2 of 12 in 55 tool calls,
-  then lost its place because the pi shell forgets `cd` between calls; every printed command now starts with
-  `cd <project> &&`. Runs of the current version on qwen3:4b, LFM2.5-8B-A1B and LFM2.5-24B-A2B are in progress.
+- **No local model has finished a film yet.** The best run so far, qwen3:4b with the skill named, went from an
+  empty folder to a rendered 55 s film in about 32 minutes and 83 tool calls, and passed 16 of 18 checks. It then
+  edited film.json by hand and said the film was done, which was false. An earlier 24 s film by qwen3:4b passed 17
+  of 18 checks at the time; a check added since refuses one of its quotes. LFM2.5-24B-A2B reached step 7 of 12 with 9 cut and verified quotes in one 60-minute run and step 5 with
+  5 quotes in another. Runs of the same model on the same version differ a lot.
+- **A film that passes the checks can still be wrong.** The 55 s film was about Tim Tebow. One of its six quotes says
+  "the night I won Miss Universe" and another is a line from a picture-frame ad, and both passed the quote check.
+  Nothing checks who is speaking. Listen to every quote before you post.
+- **Finding facts.** Without `find_facts.py`, one qwen3:4b run made 105 fact calls and none was accepted. With it,
+  three runs of three (two qwen3:4b, one LFM2.5-24B-A2B) had five facts accepted. On six people it was not tuned
+  on, it found 12, 4, 6, 7, 5 and 7 facts in 28 to 43 s each. Three other people gave only 2, 3 and 4. A film
+  needs five, so the model has to find the rest itself.
+- **Checking facts.** On three people outside the tuning set, `facts.py` passed 5 of 6 true facts and 1 of 14
+  facts changed to be false. A vague line, or a false one that two pages repeat, can pass.
+- **Context size.** With a 32768-token window, pi's default compaction settings (reserve 16384) compacted 19 times
+  in one run and took 16.5 of its 35 minutes. `reserveTokens` 9000 and `keepRecentTokens` 8000 brought that to 5
+  times and 3.2 minutes in the next run, on a newer version of the skill.
 
 `distill/DISTILL.md` has the acceptance checks for testing a student model with
 [skill-distill](https://github.com/sybil-solutions/skill-distill).
